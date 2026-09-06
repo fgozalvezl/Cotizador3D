@@ -1,0 +1,46 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sw="clr-namespace:System.Windows;assembly=PresentationCore">
+
+    <!-- Animaciones compartidas. Todas trabajan sobre Opacity y transformaciones
+         (aceleradas por GPU); ninguna anima el layout. -->
+
+    <CubicEase x:Key="SuavizadoSalida" EasingMode="EaseOut" />
+    <QuadraticEase x:Key="SuavizadoEntrada" EasingMode="EaseIn" />
+
+    <!-- Aparicion de una ventana: se anima el contenido raiz, no la ventana,
+         para no necesitar AllowsTransparency. -->
+    <Storyboard x:Key="AnimAparecerVentana">
+        <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                         From="0" To="1" Duration="0:0:0.2"
+                         EasingFunction="{StaticResource SuavizadoSalida}" />
+    </Storyboard>
+
+    <!-- Entrada de un panel/banner: se desvanece hacia arriba. Requiere un
+         TranslateTransform en linea en el elemento. -->
+    <Storyboard x:Key="AnimEntradaPanel">
+        <ObjectAnimationUsingKeyFrames Storyboard.TargetProperty="Visibility">
+            <DiscreteObjectKeyFrame KeyTime="0:0:0" Value="{x:Static sw:Visibility.Visible}" />
+        </ObjectAnimationUsingKeyFrames>
+        <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                         From="0" To="1" Duration="0:0:0.25"
+                         EasingFunction="{StaticResource SuavizadoSalida}" />
+        <DoubleAnimation Storyboard.TargetProperty="RenderTransform.(TranslateTransform.Y)"
+                         From="12" To="0" Duration="0:0:0.25"
+                         EasingFunction="{StaticResource SuavizadoSalida}" />
+    </Storyboard>
+
+    <!-- Salida de un banner: se desvanece y recien al final se colapsa. -->
+    <Storyboard x:Key="AnimSalidaPanel">
+        <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                         To="0" Duration="0:0:0.18"
+                         EasingFunction="{StaticResource SuavizadoEntrada}" />
+        <DoubleAnimation Storyboard.TargetProperty="RenderTransform.(TranslateTransform.Y)"
+                         To="-6" Duration="0:0:0.18"
+                         EasingFunction="{StaticResource SuavizadoEntrada}" />
+        <ObjectAnimationUsingKeyFrames Storyboard.TargetProperty="Visibility">
+            <DiscreteObjectKeyFrame KeyTime="0:0:0.18" Value="{x:Static sw:Visibility.Collapsed}" />
+        </ObjectAnimationUsingKeyFrames>
+    </Storyboard>
+
+</ResourceDictionary>

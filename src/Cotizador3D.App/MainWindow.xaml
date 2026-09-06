@@ -1,0 +1,395 @@
+<Window x:Class="Cotizador3D.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:b="clr-namespace:Cotizador3D.App.Behaviors"
+        Title="Calculadora de Costos de Impresión 3D"
+        Style="{StaticResource VentanaBase}"
+        Width="950" Height="700"
+        MinWidth="920" MinHeight="650"
+        WindowStartupLocation="CenterScreen">
+
+    <!-- La animacion de aparicion va sobre el contenido, no sobre la ventana:
+         Window.Opacity exigiria AllowsTransparency. -->
+    <Grid x:Name="Raiz" Opacity="0"
+          b:Foco.ComandoAlPerderFoco="{Binding GuardarConfiguracionCommand}">
+        <Grid.Triggers>
+            <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                <BeginStoryboard Storyboard="{StaticResource AnimAparecerVentana}" />
+            </EventTrigger>
+        </Grid.Triggers>
+
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- ===================== Encabezado ===================== -->
+        <Grid Grid.Row="0" Margin="24,20,24,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                <TextBlock Text="Calculadora de Costos de Impresión 3D" Style="{StaticResource TituloVentana}" />
+                <TextBlock Text="Cotizador3D" FontSize="12" Foreground="{StaticResource PincelTextoTenue}" Margin="0,2,0,0" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
+                <TextBlock Text="Nombre del negocio:"
+                           Style="{StaticResource EtiquetaCampo}"
+                           VerticalAlignment="Center"
+                           Margin="0,0,10,0" />
+                <TextBox Width="230"
+                         b:Marcador.Texto="Aparece en el PDF del cliente"
+                         Text="{Binding NombreNegocio, UpdateSourceTrigger=PropertyChanged}" />
+            </StackPanel>
+        </Grid>
+
+        <!-- ======================= Avisos ======================= -->
+        <StackPanel Grid.Row="1" Margin="24,4,24,0">
+
+            <!-- Error de validacion: banner en linea, no modal (B3/B10). -->
+            <Border CornerRadius="10"
+                    BorderThickness="1"
+                    Padding="14,12"
+                    Margin="0,0,0,8"
+                    Background="{StaticResource PincelErrorFondo}"
+                    BorderBrush="{StaticResource PincelError}">
+                <Border.RenderTransform>
+                    <TranslateTransform Y="12" />
+                </Border.RenderTransform>
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Setter Property="Opacity" Value="0" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding HayError}" Value="True">
+                                <DataTrigger.EnterActions>
+                                    <BeginStoryboard Storyboard="{StaticResource AnimEntradaPanel}" />
+                                </DataTrigger.EnterActions>
+                                <DataTrigger.ExitActions>
+                                    <BeginStoryboard Storyboard="{StaticResource AnimSalidaPanel}" />
+                                </DataTrigger.ExitActions>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="⛔" FontSize="15" VerticalAlignment="Top" Margin="0,0,10,0" />
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding MensajeError}"
+                               Foreground="{StaticResource PincelError}"
+                               TextWrapping="Wrap"
+                               VerticalAlignment="Center" />
+                    <Button Grid.Column="2"
+                            Content="✕"
+                            Style="{StaticResource BotonCerrarAviso}"
+                            ToolTip="Ocultar el aviso"
+                            Command="{Binding DescartarErrorCommand}" />
+                </Grid>
+            </Border>
+
+            <!-- Aviso de desgaste anulado (B7). -->
+            <Border CornerRadius="10"
+                    BorderThickness="1"
+                    Padding="14,12"
+                    Margin="0,0,0,8"
+                    Background="{StaticResource PincelAdvertenciaFondo}"
+                    BorderBrush="{StaticResource PincelAdvertencia}">
+                <Border.RenderTransform>
+                    <TranslateTransform Y="12" />
+                </Border.RenderTransform>
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Setter Property="Opacity" Value="0" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding HayAdvertencia}" Value="True">
+                                <DataTrigger.EnterActions>
+                                    <BeginStoryboard Storyboard="{StaticResource AnimEntradaPanel}" />
+                                </DataTrigger.EnterActions>
+                                <DataTrigger.ExitActions>
+                                    <BeginStoryboard Storyboard="{StaticResource AnimSalidaPanel}" />
+                                </DataTrigger.ExitActions>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="⚠" FontSize="15" VerticalAlignment="Top" Margin="0,0,10,0" />
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding MensajeAdvertencia}"
+                               Foreground="{StaticResource PincelAdvertencia}"
+                               TextWrapping="Wrap"
+                               VerticalAlignment="Center" />
+                    <Button Grid.Column="2"
+                            Content="✕"
+                            Style="{StaticResource BotonCerrarAviso}"
+                            ToolTip="Ocultar el aviso"
+                            Command="{Binding DescartarAdvertenciaCommand}" />
+                </Grid>
+            </Border>
+        </StackPanel>
+
+        <!-- ====================== Contenido ====================== -->
+        <Grid Grid.Row="2" Margin="24,8,24,24">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="400" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" MinWidth="360" />
+            </Grid.ColumnDefinitions>
+
+            <!-- ================== Entradas ================== -->
+            <Border Grid.Column="0" Style="{StaticResource Tarjeta}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,6,0">
+                    <StackPanel>
+                        <TextBlock Text="Parámetros Fijos" Style="{StaticResource TituloSeccion}" />
+
+                        <Grid Margin="0,8,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,12">
+                                <TextBlock Text="Precio Kwh:" Style="{StaticResource EtiquetaCampo}" />
+                                <TextBox b:Marcador.Texto="0"
+                                         Text="{Binding PrecioKwhTexto, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,12">
+                                <TextBlock Text="Consumo real por hora (W):" Style="{StaticResource EtiquetaCampo}" />
+                                <TextBox b:Marcador.Texto="0"
+                                         Text="{Binding ConsumoWTexto, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,0,12">
+                                <TextBlock Text="Vida útil de la Máquina (horas):" Style="{StaticResource EtiquetaCampo}" />
+                                <TextBox b:Marcador.Texto="0"
+                                         Text="{Binding DesgasteHorasTexto, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,0,0,12">
+                                <TextBlock Text="Costo Repuestos:" Style="{StaticResource EtiquetaCampo}" />
+                                <TextBox b:Marcador.Texto="0"
+                                         Text="{Binding PrecioRepuestosTexto, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,0,12">
+                                <TextBlock Text="% de Margen de error:" Style="{StaticResource EtiquetaCampo}" />
+                                <TextBox b:Marcador.Texto="0"
+                                         Text="{Binding MargenErrorTexto, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="2" Grid.Column="2" Margin="0,0,0,12">
+                                <TextBlock Text="% de IVA Luz:" Style="{StaticResource EtiquetaCampo}" />
+                                <TextBox b:Marcador.Texto="21"
+                                         Text="{Binding IvaLuzTexto, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+                        </Grid>
+
+                        <Border Style="{StaticResource Separador}" />
+
+                        <TextBlock Text="Datos de la Impresión" Style="{StaticResource TituloSeccion}" />
+
+                        <TextBlock Text="Filamento a usar:" Style="{StaticResource EtiquetaCampo}" Margin="2,8,2,5" />
+                        <Grid>
+                            <ComboBox ItemsSource="{Binding Filamentos}"
+                                      DisplayMemberPath="DisplayName"
+                                      SelectedValuePath="Id"
+                                      SelectedValue="{Binding FilamentoSeleccionadoId, Mode=TwoWay}" />
+                            <TextBlock Text="No hay filamentos definidos"
+                                       Margin="12,0,36,0"
+                                       VerticalAlignment="Center"
+                                       IsHitTestVisible="False"
+                                       Foreground="{StaticResource PincelTextoTenue}"
+                                       Visibility="{Binding SinFilamentos, Converter={StaticResource BoolAVisibilidad}}" />
+                        </Grid>
+
+                        <Button Content="Gestionar Filamentos"
+                                Style="{StaticResource BotonSecundario}"
+                                HorizontalAlignment="Right"
+                                Margin="0,10,0,0"
+                                Command="{Binding GestionarFilamentosCommand}" />
+
+                        <TextBlock Text="Tiempo de impresión:" Style="{StaticResource EtiquetaCampo}" Margin="2,16,2,5" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0" Margin="0,0,4,0"
+                                     b:Marcador.Texto="Días"
+                                     Text="{Binding DiasTexto, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBox Grid.Column="1" Margin="4,0,4,0"
+                                     b:Marcador.Texto="Horas"
+                                     Text="{Binding HorasTexto, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBox Grid.Column="2" Margin="4,0,4,0"
+                                     b:Marcador.Texto="Min"
+                                     Text="{Binding MinutosTexto, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBox Grid.Column="3" Margin="4,0,0,0"
+                                     b:Marcador.Texto="Seg"
+                                     Text="{Binding SegundosTexto, UpdateSourceTrigger=PropertyChanged}" />
+                        </Grid>
+
+                        <Grid Margin="0,16,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,12">
+                                <TextBlock Text="Gramos de Filamento:" Style="{StaticResource EtiquetaCampo}" />
+                                <TextBox b:Marcador.Texto="Ej: 120"
+                                         Text="{Binding GramosTexto, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,12">
+                                <TextBlock Text="Margen de Ganancia (x):" Style="{StaticResource EtiquetaCampo}" />
+                                <TextBox b:Marcador.Texto="Ej: 1.5 para 50% de ganancia"
+                                         Text="{Binding MargenGananciaTexto, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="1" Grid.Column="0">
+                                <TextBlock Text="Costo de Envío:" Style="{StaticResource EtiquetaCampo}" />
+                                <TextBox b:Marcador.Texto="Costo fijo de envío"
+                                         Text="{Binding CostoEnvioTexto, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+                        </Grid>
+
+                        <Border Style="{StaticResource Separador}" />
+
+                        <Button Content="Calcular"
+                                Style="{StaticResource BotonPrimario}"
+                                FontSize="15"
+                                MinHeight="46"
+                                IsDefault="True"
+                                Command="{Binding CalcularCommand}" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <!-- ================== Resultados ================== -->
+            <Border Grid.Column="2" Style="{StaticResource Tarjeta}">
+                <Grid x:Name="PanelResultados">
+                    <Grid.RenderTransform>
+                        <TranslateTransform Y="0" />
+                    </Grid.RenderTransform>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0">
+                        <TextBlock Text="Resultados del Cálculo" Style="{StaticResource TituloVentana}" />
+                        <TextBlock Text="{Binding TiempoCalculadoTexto}"
+                                   FontSize="12"
+                                   Foreground="{StaticResource PincelTextoTenue}"
+                                   Margin="0,4,0,0"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,16,0,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Precio Material:" Style="{StaticResource EtiquetaResultado}" Margin="0,0,0,10" />
+                            <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding MaterialTexto}" Style="{StaticResource ValorResultado}" Margin="0,0,0,10" />
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Precio Luz:" Style="{StaticResource EtiquetaResultado}" Margin="0,0,0,10" />
+                            <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding LuzTexto}" Style="{StaticResource ValorResultado}" Margin="0,0,0,10" />
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Desgaste de la máquina:" Style="{StaticResource EtiquetaResultado}" Margin="0,0,0,10" />
+                            <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding DesgasteTexto}" Style="{StaticResource ValorResultado}" Margin="0,0,0,10" />
+
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Margen de Error:" Style="{StaticResource EtiquetaResultado}" Margin="0,0,0,10" />
+                            <TextBlock Grid.Row="3" Grid.Column="2" Text="{Binding MargenErrorValorTexto}" Style="{StaticResource ValorResultado}" Margin="0,0,0,10" />
+
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="{Binding EtiquetaIvaLuz}" Style="{StaticResource EtiquetaResultado}" Margin="0,0,0,10" />
+                            <TextBlock Grid.Row="4" Grid.Column="2" Text="{Binding IvaLuzValorTexto}" Style="{StaticResource ValorResultado}" Margin="0,0,0,10" />
+
+                            <Border Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="3" Style="{StaticResource Separador}" Margin="0,6,0,14" />
+
+                            <TextBlock Grid.Row="6" Grid.Column="0" Text="COSTO TOTAL:" Style="{StaticResource EtiquetaTotal}" Margin="0,0,0,10" />
+                            <TextBlock Grid.Row="6" Grid.Column="2" Text="{Binding CostoTotalTexto}" Style="{StaticResource ValorTotal}" Margin="0,0,0,10" />
+
+                            <TextBlock Grid.Row="7" Grid.Column="0" Text="PRECIO DE VENTA:" Style="{StaticResource EtiquetaTotal}" Margin="0,0,0,10" />
+                            <TextBlock Grid.Row="7" Grid.Column="2" Text="{Binding PrecioVentaTexto}" Style="{StaticResource ValorTotal}" Margin="0,0,0,10" />
+
+                            <TextBlock Grid.Row="8" Grid.Column="0" Text="Costo de Envío:" Style="{StaticResource EtiquetaTotal}"
+                                       Visibility="{Binding MostrarEnvio, Converter={StaticResource BoolAVisibilidad}}" />
+                            <TextBlock Grid.Row="8" Grid.Column="2" Text="{Binding CostoEnvioResultadoTexto}" Style="{StaticResource ValorTotal}"
+                                       Visibility="{Binding MostrarEnvio, Converter={StaticResource BoolAVisibilidad}}" />
+                        </Grid>
+                    </ScrollViewer>
+
+                    <Border Grid.Row="2"
+                            Margin="0,16,0,0"
+                            CornerRadius="10"
+                            Padding="18,16"
+                            Background="{StaticResource PincelFinal}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="PRECIO FINAL:" Style="{StaticResource EtiquetaFinal}" />
+                            <TextBlock Grid.Column="1" Text="{Binding PrecioFinalTexto}" Style="{StaticResource ValorFinal}" Margin="12,0,0,0" />
+                        </Grid>
+                    </Border>
+
+                    <Button Grid.Row="3"
+                            Content="Exportar PDF"
+                            Style="{StaticResource BotonSecundario}"
+                            HorizontalAlignment="Right"
+                            Margin="0,14,0,0"
+                            ToolTip="Se habilita después de un cálculo"
+                            ToolTipService.ShowOnDisabled="True"
+                            Command="{Binding ExportarPdfCommand}" />
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

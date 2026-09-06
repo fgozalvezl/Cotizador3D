@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <RootNamespace>Cotizador3D.App</RootNamespace>
+    <AssemblyName>Cotizador3D</AssemblyName>
+    <SatelliteResourceLanguages>es</SatelliteResourceLanguages>
+    <Description>Interfaz de escritorio (WPF) de Cotizador3D.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Cotizador3D.Core\Cotizador3D.Core.csproj" />
+  </ItemGroup>
+
+</Project>

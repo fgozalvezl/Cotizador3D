@@ -1,0 +1,62 @@
+<Window x:Class="Cotizador3D.App.Views.ExportPdfDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:b="clr-namespace:Cotizador3D.App.Behaviors"
+        Title="Exportar cotización a PDF"
+        Style="{StaticResource VentanaBase}"
+        Width="460" Height="330"
+        MinWidth="420" MinHeight="310"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner">
+
+    <Window.InputBindings>
+        <KeyBinding Key="Escape" Command="{Binding CancelarCommand}" />
+    </Window.InputBindings>
+
+    <Grid x:Name="Raiz" Opacity="0" Margin="22">
+        <Grid.Triggers>
+            <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                <BeginStoryboard Storyboard="{StaticResource AnimAparecerVentana}" />
+            </EventTrigger>
+        </Grid.Triggers>
+
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,14">
+            <TextBlock Text="Datos de la cotización" Style="{StaticResource TituloSeccion}" />
+            <TextBlock Text="Ambos campos son opcionales y solo se usan para el PDF."
+                       FontSize="12"
+                       Foreground="{StaticResource PincelTextoTenue}"
+                       TextWrapping="Wrap"
+                       Margin="0,4,0,0" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="1">
+            <TextBlock Text="Cliente:" Style="{StaticResource EtiquetaCampo}" />
+            <TextBox b:Marcador.Texto="Nombre del cliente"
+                     Text="{Binding Cliente, UpdateSourceTrigger=PropertyChanged}" />
+
+            <TextBlock Text="Trabajo:" Style="{StaticResource EtiquetaCampo}" Margin="2,14,2,5" />
+            <TextBox b:Marcador.Texto="Descripción del trabajo"
+                     Text="{Binding Trabajo, UpdateSourceTrigger=PropertyChanged}" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+            <Button Content="Cancelar"
+                    Style="{StaticResource BotonSecundario}"
+                    MinWidth="100"
+                    Margin="0,0,8,0"
+                    Command="{Binding CancelarCommand}" />
+            <Button Content="Continuar"
+                    Style="{StaticResource BotonPrimario}"
+                    MinWidth="120"
+                    IsDefault="True"
+                    Command="{Binding ConfirmarCommand}" />
+        </StackPanel>
+    </Grid>
+</Window>
