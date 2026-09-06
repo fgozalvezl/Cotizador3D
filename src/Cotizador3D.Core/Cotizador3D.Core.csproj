@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Cotizador3D.Core</RootNamespace>
+    <AssemblyName>Cotizador3D.Core</AssemblyName>
+    <Description>Logica de negocio de Cotizador3D: calculo, persistencia y formato.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- El exportador de PDF se implementa en Export/ mas adelante. -->
+    <PackageReference Include="QuestPDF" Version="2024.12.3" />
+  </ItemGroup>
+
+</Project>
