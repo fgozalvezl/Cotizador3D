@@ -17,6 +17,10 @@ redondeo intermedio, `double`). Ningun cambio de negocio.
   `precio_venta`, se agrega el envio como linea aparte (solo si > 0) y el total
   es `precio_final_con_envio`. El cliente no puede deducir la ganancia por
   resta.
+- Redondeo: cada linea se redondea a 2 decimales; el total es
+  `round(precio_venta) + round(envio)`; la linea "Margen de error" absorbe la
+  diferencia para que las lineas impresas sumen exactamente el total impreso.
+  Valores que redondean a 0 se muestran como `$ 0,00` (nunca `-0,00`).
 - El desglose interno (con costo real y ganancia) sigue visible solo en la UI.
 - El PDF incluye: nombre del negocio (opcional, configurable), fecha, nombre
   del cliente y del trabajo (opcionales, se piden al exportar), filamento
@@ -39,7 +43,7 @@ redondeo intermedio, `double`). Ningun cambio de negocio.
 | B7 | Mantener el comportamiento (desgaste 0 si vida util <= 0) pero mostrar un aviso. |
 | B8 | Corregir: se guarda lo valido; la geometria se guarda siempre. |
 | B9 | Corregir: formato es-AR (`$ 1.234,56`) en UI y PDF, dos decimales. |
-| B11, B21 | Corregir: escritura atomica (archivo temporal + rename) y error visible al usuario. |
+| B11, B21 | Corregir: escritura atomica (archivo temporal + rename), copia previa en `config_impresion3d.json.bak` y error visible al usuario (modal si ocurre al cerrar). Si el archivo existe pero no se puede leer o esta corrupto, la app arranca con defaults, avisa y BLOQUEA el guardado hasta reabrir, para no pisar la configuracion real. |
 | B12 | Corregir. |
 | B13 | Compatibilidad: leer numeros como string o numero; escribir siempre string para que la app Python vieja siga pudiendo leer el archivo. |
 | B14, B15 | Corregir: IVA de luz editable en la UI y la etiqueta se recalcula. |
@@ -51,9 +55,13 @@ redondeo intermedio, `double`). Ningun cambio de negocio.
 Los textos de error se reescriben en espanol claro, sin reproducir las faltas
 de ortografia del original.
 
+Campos vacios: como en el legado, un campo de parametro vacio vale 0 para el
+calculo; al autoguardar, ganancia vacia se guarda como 1.5 y el resto como 0.
+
 ## Compatibilidad del JSON
 
 Misma ruta y mismo esquema: settings como strings, `price_kg` como numero,
 igual que escribia la app Python. Claves nuevas en `settings`: `nombre_negocio`
 (string, default ""). Los filamentos sin `id` reciben un GUID al cargar; los
-ids existentes se conservan. Todo lo demas intacto.
+ids existentes se conservan. Las claves desconocidas del archivo se conservan
+al guardar. Todo lo demas intacto.

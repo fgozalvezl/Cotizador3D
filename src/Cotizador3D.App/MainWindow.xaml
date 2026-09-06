@@ -10,8 +10,10 @@
 
     <!-- La animacion de aparicion va sobre el contenido, no sobre la ventana:
          Window.Opacity exigiria AllowsTransparency. -->
-    <Grid x:Name="Raiz" Opacity="0"
-          b:Foco.ComandoAlPerderFoco="{Binding GuardarConfiguracionCommand}">
+    <!-- El autoguardado NO va aca: colgado del Grid raiz, cualquier cambio de
+         foco (gramos, tiempo, botones) reescribia el JSON. Se engancha campo
+         por campo, solo en los ajustes persistidos (docs/SPEC-legacy.md 3.1.4). -->
+    <Grid x:Name="Raiz" Opacity="0">
         <Grid.Triggers>
             <EventTrigger RoutedEvent="FrameworkElement.Loaded">
                 <BeginStoryboard Storyboard="{StaticResource AnimAparecerVentana}" />
@@ -43,7 +45,8 @@
                            Margin="0,0,10,0" />
                 <TextBox Width="230"
                          b:Marcador.Texto="Aparece en el PDF del cliente"
-                         Text="{Binding NombreNegocio, UpdateSourceTrigger=PropertyChanged}" />
+                         Text="{Binding NombreNegocio, UpdateSourceTrigger=PropertyChanged}"
+                         b:Foco.ComandoAlPerderFoco="{Binding GuardarConfiguracionCommand}" />
             </StackPanel>
         </Grid>
 
@@ -172,37 +175,43 @@
                             <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,12">
                                 <TextBlock Text="Precio Kwh:" Style="{StaticResource EtiquetaCampo}" />
                                 <TextBox b:Marcador.Texto="0"
-                                         Text="{Binding PrecioKwhTexto, UpdateSourceTrigger=PropertyChanged}" />
+                                         Text="{Binding PrecioKwhTexto, UpdateSourceTrigger=PropertyChanged}"
+                                         b:Foco.ComandoAlPerderFoco="{Binding GuardarConfiguracionCommand}" />
                             </StackPanel>
 
                             <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,12">
                                 <TextBlock Text="Consumo real por hora (W):" Style="{StaticResource EtiquetaCampo}" />
                                 <TextBox b:Marcador.Texto="0"
-                                         Text="{Binding ConsumoWTexto, UpdateSourceTrigger=PropertyChanged}" />
+                                         Text="{Binding ConsumoWTexto, UpdateSourceTrigger=PropertyChanged}"
+                                         b:Foco.ComandoAlPerderFoco="{Binding GuardarConfiguracionCommand}" />
                             </StackPanel>
 
                             <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,0,12">
                                 <TextBlock Text="Vida útil de la Máquina (horas):" Style="{StaticResource EtiquetaCampo}" />
                                 <TextBox b:Marcador.Texto="0"
-                                         Text="{Binding DesgasteHorasTexto, UpdateSourceTrigger=PropertyChanged}" />
+                                         Text="{Binding DesgasteHorasTexto, UpdateSourceTrigger=PropertyChanged}"
+                                         b:Foco.ComandoAlPerderFoco="{Binding GuardarConfiguracionCommand}" />
                             </StackPanel>
 
                             <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,0,0,12">
                                 <TextBlock Text="Costo Repuestos:" Style="{StaticResource EtiquetaCampo}" />
                                 <TextBox b:Marcador.Texto="0"
-                                         Text="{Binding PrecioRepuestosTexto, UpdateSourceTrigger=PropertyChanged}" />
+                                         Text="{Binding PrecioRepuestosTexto, UpdateSourceTrigger=PropertyChanged}"
+                                         b:Foco.ComandoAlPerderFoco="{Binding GuardarConfiguracionCommand}" />
                             </StackPanel>
 
                             <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,0,12">
                                 <TextBlock Text="% de Margen de error:" Style="{StaticResource EtiquetaCampo}" />
                                 <TextBox b:Marcador.Texto="0"
-                                         Text="{Binding MargenErrorTexto, UpdateSourceTrigger=PropertyChanged}" />
+                                         Text="{Binding MargenErrorTexto, UpdateSourceTrigger=PropertyChanged}"
+                                         b:Foco.ComandoAlPerderFoco="{Binding GuardarConfiguracionCommand}" />
                             </StackPanel>
 
                             <StackPanel Grid.Row="2" Grid.Column="2" Margin="0,0,0,12">
                                 <TextBlock Text="% de IVA Luz:" Style="{StaticResource EtiquetaCampo}" />
-                                <TextBox b:Marcador.Texto="21"
-                                         Text="{Binding IvaLuzTexto, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBox b:Marcador.Texto="0"
+                                         Text="{Binding IvaLuzTexto, UpdateSourceTrigger=PropertyChanged}"
+                                         b:Foco.ComandoAlPerderFoco="{Binding GuardarConfiguracionCommand}" />
                             </StackPanel>
                         </Grid>
 
@@ -272,13 +281,15 @@
                             <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,12">
                                 <TextBlock Text="Margen de Ganancia (x):" Style="{StaticResource EtiquetaCampo}" />
                                 <TextBox b:Marcador.Texto="Ej: 1.5 para 50% de ganancia"
-                                         Text="{Binding MargenGananciaTexto, UpdateSourceTrigger=PropertyChanged}" />
+                                         Text="{Binding MargenGananciaTexto, UpdateSourceTrigger=PropertyChanged}"
+                                         b:Foco.ComandoAlPerderFoco="{Binding GuardarConfiguracionCommand}" />
                             </StackPanel>
 
                             <StackPanel Grid.Row="1" Grid.Column="0">
                                 <TextBlock Text="Costo de Envío:" Style="{StaticResource EtiquetaCampo}" />
                                 <TextBox b:Marcador.Texto="Costo fijo de envío"
-                                         Text="{Binding CostoEnvioTexto, UpdateSourceTrigger=PropertyChanged}" />
+                                         Text="{Binding CostoEnvioTexto, UpdateSourceTrigger=PropertyChanged}"
+                                         b:Foco.ComandoAlPerderFoco="{Binding GuardarConfiguracionCommand}" />
                             </StackPanel>
                         </Grid>
 

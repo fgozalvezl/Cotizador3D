@@ -264,6 +264,67 @@ public class QuotePdfExporterTests
         Contiene(texto, QuotePdfExporter.TituloGenerico);
     }
 
+    // ------------------------------------------- la columna suma exactamente
+
+    /// <summary>
+    /// Lo que ve el cliente: los importes IMPRESOS en el PDF tienen que sumar
+    /// exactamente el TOTAL impreso. Se extraen del PDF real, se parsean en
+    /// es-AR y se suman como decimal.
+    /// </summary>
+    [Theory]
+    // El caso del reviewer: defaults, 80 g a $ 18.500/kg, 2 h 30 min, sin envio.
+    [InlineData(80d, 18500d, 1.5d, 0d, 2d, 30d, 21d)]
+    [InlineData(100d, 25000d, 1.5d, 3500d, 2d, 30d, 21d)]
+    [InlineData(1d, 18500d, 2.4d, 0d, 0d, 7d, 21d)]
+    [InlineData(499d, 25000.5d, 3d, 1234.56d, 12d, 0d, 21d)]
+    [InlineData(250d, 18500.5d, 1d, 3500d, 1d, 1d, 10.5d)]
+    [InlineData(37d, 25000.5d, 1.5d, 0.99d, 0d, 45d, 0d)]
+    public void Generar_LosImportesImpresosSumanElTotalImpreso(
+        double gramos,
+        double precioKg,
+        double margen,
+        double envio,
+        double horas,
+        double minutos,
+        double ivaLuzPct)
+    {
+        var entrada = TestData.EntradaPorDefecto();
+        entrada.Gramos = gramos;
+        entrada.Filamento!.PriceKg = precioKg;
+        entrada.Settings.MargenGanancia = margen;
+        entrada.Settings.CostoEnvio = envio;
+        entrada.Settings.IvaLuzPct = ivaLuzPct;
+        entrada.Horas = horas;
+        entrada.Minutos = minutos;
+
+        var resultado = QuoteCalculator.Calcular(entrada);
+        var desglose = resultado.ParaCliente();
+
+        var info = new ClientQuoteInfo
+        {
+            NombreNegocio = "Impresiones Patagonia",
+            Cliente = "Juan Pérez",
+            Trabajo = "Soporte de monitor",
+            Filamento = entrada.Filamento!,
+            Gramos = entrada.Gramos,
+            HorasImpresion = resultado.HorasImpresion,
+            Fecha = new DateTime(2026, 9, 6),
+        };
+
+        var texto = TextoDelPdf(QuotePdfExporter.Generar(resultado, info));
+        var importes = ImportesDelTexto.Extraer(texto);
+
+        // Todas las lineas del desglose, mas la fila del TOTAL (la ultima).
+        Assert.Equal(desglose.Lineas.Count + 1, importes.Count);
+
+        var total = importes[^1];
+        var lineas = importes.Take(importes.Count - 1).ToList();
+
+        Assert.Equal(ImportesDelTexto.ComoSeImprime(desglose.Total), total);
+        Assert.Equal(total, lineas.Sum());
+        Assert.DoesNotContain("-0,00", texto, StringComparison.Ordinal);
+    }
+
     // -------------------------------------------------------------- Exportar
 
     [Fact]

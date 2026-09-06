@@ -98,14 +98,16 @@ public class ConfigStoreTests
     }
 
     [Fact]
-    public void Cargar_ArchivoInexistente_DevuelveDefaults()
+    public void Cargar_ArchivoInexistente_DevuelveDefaultsYPermiteGuardar()
     {
         using var temp = new DirectorioTemporal();
         var store = new ConfigStore(temp.Archivo());
 
-        var datos = store.Cargar();
+        var carga = store.Cargar();
 
-        AssertSonLosDefaults(datos);
+        AssertSonLosDefaults(carga.Datos);
+        Assert.False(carga.CargaFallida);
+        Assert.Null(carga.Motivo);
         Assert.False(File.Exists(temp.Archivo()));
     }
 
@@ -133,19 +135,78 @@ public class ConfigStoreTests
         Assert.True(File.Exists(store.RutaArchivo));
     }
 
+    /// <summary>
+    /// Un archivo vacio no tiene nada que perder: defaults y se puede guardar
+    /// (docs/SPEC-legacy.md 1.3).
+    /// </summary>
     [Theory]
     [InlineData("")]
     [InlineData("   \n  ")]
-    [InlineData("{ esto no es json")]
-    [InlineData("[1, 2, 3]")]
-    [InlineData("42")]
-    public void Cargar_ContenidoInvalido_DevuelveDefaults(string contenido)
+    public void Cargar_ArchivoVacio_DevuelveDefaultsSinMarcarFallo(string contenido)
     {
         using var temp = new DirectorioTemporal();
         File.WriteAllText(temp.Archivo(), contenido);
         var store = new ConfigStore(temp.Archivo());
 
-        AssertSonLosDefaults(store.Cargar());
+        var carga = store.Cargar();
+
+        AssertSonLosDefaults(carga.Datos);
+        Assert.False(carga.CargaFallida);
+    }
+
+    /// <summary>
+    /// Hay contenido pero no se puede interpretar: defaults SI, guardar NO (si
+    /// no, el autoguardado pisaria la configuracion real del usuario).
+    /// </summary>
+    [Theory]
+    [InlineData("{ esto no es json")]
+    [InlineData("[1, 2, 3]")]
+    [InlineData("42")]
+    [InlineData("\"texto\"")]
+    [InlineData("{\"settings\": {\"precio_kwh\": }}")]
+    public void Cargar_ContenidoCorrupto_MarcaLaCargaComoFallida(string contenido)
+    {
+        using var temp = new DirectorioTemporal();
+        File.WriteAllText(temp.Archivo(), contenido);
+        var store = new ConfigStore(temp.Archivo());
+
+        var carga = store.Cargar();
+
+        AssertSonLosDefaults(carga.Datos);
+        Assert.True(carga.CargaFallida);
+        Assert.False(string.IsNullOrWhiteSpace(carga.Motivo));
+    }
+
+    /// <summary>
+    /// Archivo ilegible. Se usa un directorio en la ruta del archivo porque el
+    /// truco del chmod no sirve cuando los tests corren como root.
+    /// </summary>
+    [Fact]
+    public void Cargar_ArchivoIlegible_MarcaLaCargaComoFallida()
+    {
+        using var temp = new DirectorioTemporal();
+        Directory.CreateDirectory(temp.Archivo());
+        var store = new ConfigStore(temp.Archivo());
+
+        var carga = store.Cargar();
+
+        AssertSonLosDefaults(carga.Datos);
+        Assert.True(carga.CargaFallida);
+        Assert.False(string.IsNullOrWhiteSpace(carga.Motivo));
+    }
+
+    /// <summary>Un JSON valido pero incompleto NO es un fallo: se completan los defaults (B1/B2).</summary>
+    [Fact]
+    public void Cargar_JsonValidoConClavesFaltantes_NoEsFallo()
+    {
+        using var temp = new DirectorioTemporal();
+        File.WriteAllText(temp.Archivo(), """{"settings":{"consumo_w":"200"}}""");
+        var store = new ConfigStore(temp.Archivo());
+
+        var carga = store.Cargar();
+
+        Assert.False(carga.CargaFallida);
+        Assert.Equal(200d, carga.Datos.Settings.ConsumoW);
     }
 
     [Fact]
@@ -155,7 +216,7 @@ public class ConfigStoreTests
         File.WriteAllText(temp.Archivo(), """{"filaments":[{"brand":"X","type":"PLA","price_kg":100}]}""");
         var store = new ConfigStore(temp.Archivo());
 
-        var datos = store.Cargar();
+        var datos = store.Cargar().Datos;
 
         AssertSonLosDefaults(datos, esperarFilamentosVacios: false);
         Assert.Single(datos.Filaments);
@@ -168,7 +229,7 @@ public class ConfigStoreTests
         File.WriteAllText(temp.Archivo(), """{"settings":{"consumo_w":"200"}}""");
         var store = new ConfigStore(temp.Archivo());
 
-        var datos = store.Cargar();
+        var datos = store.Cargar().Datos;
 
         Assert.Equal(200d, datos.Settings.ConsumoW);
         Assert.Equal(199.7464d, datos.Settings.PrecioKwh, 10);
@@ -188,7 +249,7 @@ public class ConfigStoreTests
         File.WriteAllText(temp.Archivo(), """{"settings":{"precio_kwh":"no es un numero","consumo_w":null}}""");
         var store = new ConfigStore(temp.Archivo());
 
-        var datos = store.Cargar();
+        var datos = store.Cargar().Datos;
 
         Assert.Equal(199.7464d, datos.Settings.PrecioKwh, 10);
         Assert.Equal(150d, datos.Settings.ConsumoW);
@@ -201,7 +262,7 @@ public class ConfigStoreTests
         File.WriteAllText(temp.Archivo(), JsonLegadoConStrings);
         var store = new ConfigStore(temp.Archivo());
 
-        var datos = store.Cargar();
+        var datos = store.Cargar().Datos;
 
         Assert.Equal(199.7464d, datos.Settings.PrecioKwh, 10);
         Assert.Equal(150d, datos.Settings.ConsumoW);
@@ -227,7 +288,7 @@ public class ConfigStoreTests
         File.WriteAllText(temp.Archivo(), JsonLegadoConNumeros);
         var store = new ConfigStore(temp.Archivo());
 
-        var datos = store.Cargar();
+        var datos = store.Cargar().Datos;
 
         Assert.Equal(199.7464d, datos.Settings.PrecioKwh, 10);
         Assert.Equal(150d, datos.Settings.ConsumoW);
@@ -251,7 +312,7 @@ public class ConfigStoreTests
         """);
         var store = new ConfigStore(temp.Archivo());
 
-        var datos = store.Cargar();
+        var datos = store.Cargar().Datos;
 
         Assert.Equal(4, datos.Filaments.Count);
         Assert.All(datos.Filaments, f => Assert.False(string.IsNullOrWhiteSpace(f.Id)));
@@ -271,7 +332,7 @@ public class ConfigStoreTests
         """);
         var store = new ConfigStore(temp.Archivo());
 
-        var datos = store.Cargar();
+        var datos = store.Cargar().Datos;
 
         Assert.Equal("grilon_3_pla_a1b2c3d4", datos.Filaments[0].Id);
         Assert.Equal("9f3c1a02-0000-0000-0000-000000000000", datos.Filaments[1].Id);
@@ -284,10 +345,10 @@ public class ConfigStoreTests
         File.WriteAllText(temp.Archivo(), JsonLegadoConStrings);
         var store = new ConfigStore(temp.Archivo());
 
-        var datos = store.Cargar();
+        var datos = store.Cargar().Datos;
         store.Guardar(datos);
 
-        Assert.Equal("grilon3_pla_9f3c1a02", Assert.Single(store.Cargar().Filaments).Id);
+        Assert.Equal("grilon3_pla_9f3c1a02", Assert.Single(store.Cargar().Datos.Filaments).Id);
         Assert.Contains("grilon3_pla_9f3c1a02", File.ReadAllText(temp.Archivo()), StringComparison.Ordinal);
     }
 
@@ -304,7 +365,7 @@ public class ConfigStoreTests
         """);
         var store = new ConfigStore(temp.Archivo());
 
-        var datos = store.Cargar();
+        var datos = store.Cargar().Datos;
 
         Assert.Equal(3, datos.Filaments.Count);
         Assert.Equal("repetido", datos.Filaments[0].Id);
@@ -321,7 +382,7 @@ public class ConfigStoreTests
         File.WriteAllText(temp.Archivo(), """{"settings":{},"filaments":[1,"x",null,{"brand":"A","type":"PLA","price_kg":100}]}""");
         var store = new ConfigStore(temp.Archivo());
 
-        Assert.Single(store.Cargar().Filaments);
+        Assert.Single(store.Cargar().Datos.Filaments);
     }
 
     [Fact]
@@ -352,7 +413,7 @@ public class ConfigStoreTests
         };
 
         store.Guardar(original);
-        var recargado = store.Cargar();
+        var recargado = store.Cargar().Datos;
 
         Assert.Equal(original.Settings.PrecioKwh, recargado.Settings.PrecioKwh, 10);
         Assert.Equal(original.Settings.CostoEnvio, recargado.Settings.CostoEnvio, 10);
@@ -421,13 +482,163 @@ public class ConfigStoreTests
         var store = new ConfigStore(temp.Archivo());
 
         store.Guardar(AppData.PorDefecto());
-        var datos = store.Cargar();
+        var datos = store.Cargar().Datos;
         datos.Settings.CostoEnvio = 999;
         store.Guardar(datos);
 
-        Assert.Equal(999d, store.Cargar().Settings.CostoEnvio);
+        Assert.Equal(999d, store.Cargar().Datos.Settings.CostoEnvio);
         Assert.Empty(Directory.GetFiles(temp.Ruta, "*.tmp"));
-        Assert.Single(Directory.GetFiles(temp.Ruta));
+
+        // Solo el archivo de configuracion y su copia de seguridad.
+        Assert.Equal(
+            new[] { store.RutaArchivo, store.RutaCopiaDeSeguridad }.OrderBy(r => r, StringComparer.Ordinal),
+            Directory.GetFiles(temp.Ruta).OrderBy(r => r, StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void Guardar_PrimeraVez_NoCreaCopiaDeSeguridad()
+    {
+        using var temp = new DirectorioTemporal();
+        var store = new ConfigStore(temp.Archivo());
+
+        store.Guardar(AppData.PorDefecto());
+
+        Assert.False(File.Exists(store.RutaCopiaDeSeguridad));
+    }
+
+    [Fact]
+    public void Guardar_CopiaElArchivoAnteriorAlBak()
+    {
+        using var temp = new DirectorioTemporal();
+        var store = new ConfigStore(temp.Archivo());
+        File.WriteAllText(temp.Archivo(), JsonLegadoConNumeros);
+
+        var datos = store.Cargar().Datos;
+        datos.Settings.CostoEnvio = 4321;
+        store.Guardar(datos);
+
+        Assert.Equal(temp.Archivo() + ".bak", store.RutaCopiaDeSeguridad);
+        Assert.True(File.Exists(store.RutaCopiaDeSeguridad));
+
+        // La copia tiene EXACTAMENTE el contenido anterior.
+        Assert.Equal(JsonLegadoConNumeros, File.ReadAllText(store.RutaCopiaDeSeguridad));
+
+        // Y el archivo nuevo tiene el valor nuevo.
+        Assert.Equal(4321d, store.Cargar().Datos.Settings.CostoEnvio);
+    }
+
+    [Fact]
+    public void Guardar_CopiaDeSeguridad_SeReemplazaEnCadaGuardado()
+    {
+        using var temp = new DirectorioTemporal();
+        var store = new ConfigStore(temp.Archivo());
+
+        var datos = AppData.PorDefecto();
+        datos.Settings.CostoEnvio = 1;
+        store.Guardar(datos);
+
+        datos.Settings.CostoEnvio = 2;
+        store.Guardar(datos);
+
+        datos.Settings.CostoEnvio = 3;
+        store.Guardar(datos);
+
+        var copia = new ConfigStore(store.RutaCopiaDeSeguridad).Cargar();
+        Assert.False(copia.CargaFallida);
+        Assert.Equal(2d, copia.Datos.Settings.CostoEnvio);
+        Assert.Equal(3d, store.Cargar().Datos.Settings.CostoEnvio);
+    }
+
+    // ------------------------------------------- claves desconocidas (extras)
+
+    [Fact]
+    public void GuardarYCargar_ConservaLasClavesDesconocidas()
+    {
+        using var temp = new DirectorioTemporal();
+        File.WriteAllText(temp.Archivo(), """
+        {
+            "settings": {
+                "precio_kwh": "199.7464",
+                "clave_futura": "no la borres",
+                "objeto_futuro": {"a": 1, "b": [1, 2, 3]}
+            },
+            "filaments": [
+                {"brand":"A","type":"PLA","price_kg":100,"id":"a","color":"rojo","notas":{"x":1}}
+            ],
+            "version_futura": 7,
+            "extras_raiz": ["a", "b"]
+        }
+        """);
+        var store = new ConfigStore(temp.Archivo());
+
+        var datos = store.Cargar().Datos;
+
+        Assert.Equal("no la borres", datos.Settings.Extras["clave_futura"].GetString());
+        Assert.Equal("rojo", datos.Filaments[0].Extras["color"].GetString());
+        Assert.Equal(7, datos.Extras["version_futura"].GetInt32());
+
+        store.Guardar(datos);
+
+        using var documento = JsonDocument.Parse(File.ReadAllText(temp.Archivo()));
+        var raiz = documento.RootElement;
+
+        // Nivel raiz.
+        Assert.Equal(7, raiz.GetProperty("version_futura").GetInt32());
+        Assert.Equal(2, raiz.GetProperty("extras_raiz").GetArrayLength());
+
+        // Nivel settings.
+        var settings = raiz.GetProperty("settings");
+        Assert.Equal("no la borres", settings.GetProperty("clave_futura").GetString());
+        Assert.Equal(1, settings.GetProperty("objeto_futuro").GetProperty("a").GetInt32());
+        Assert.Equal(3, settings.GetProperty("objeto_futuro").GetProperty("b").GetArrayLength());
+
+        // Nivel filamento.
+        var filamento = raiz.GetProperty("filaments")[0];
+        Assert.Equal("rojo", filamento.GetProperty("color").GetString());
+        Assert.Equal(1, filamento.GetProperty("notas").GetProperty("x").GetInt32());
+
+        // Y las claves conocidas siguen intactas y sin duplicar.
+        Assert.Equal("a", filamento.GetProperty("id").GetString());
+        Assert.Equal("199.7464", settings.GetProperty("precio_kwh").GetString());
+        Assert.Equal("950x700", settings.GetProperty("geometry").GetString());
+    }
+
+    [Fact]
+    public void GuardarYCargar_LasClavesDesconocidasSobrevivenAVariasVueltas()
+    {
+        using var temp = new DirectorioTemporal();
+        File.WriteAllText(temp.Archivo(), """
+        {"settings":{"clave_futura":"x"},"filaments":[{"brand":"A","type":"PLA","price_kg":1,"id":"a","color":"rojo"}],"otra":true}
+        """);
+        var store = new ConfigStore(temp.Archivo());
+
+        for (var vuelta = 0; vuelta < 3; vuelta++)
+        {
+            store.Guardar(store.Cargar().Datos);
+        }
+
+        var datos = store.Cargar().Datos;
+        Assert.Equal("x", datos.Settings.Extras["clave_futura"].GetString());
+        Assert.Equal("rojo", datos.Filaments[0].Extras["color"].GetString());
+        Assert.True(datos.Extras["otra"].GetBoolean());
+    }
+
+    [Fact]
+    public void Serializar_NoDuplicaUnaClaveConocidaQueVengaEnLosExtras()
+    {
+        var datos = AppData.PorDefecto();
+        using var documento = JsonDocument.Parse("""{"geometry":"1x1","brand":"X","settings":1}""");
+        datos.Settings.Extras["geometry"] = documento.RootElement.GetProperty("geometry").Clone();
+        datos.Extras["settings"] = documento.RootElement.GetProperty("settings").Clone();
+        datos.Filaments.Add(new Filament { Brand = "A", Type = "PLA", PriceKg = 1 });
+        datos.Filaments[0].Extras["brand"] = documento.RootElement.GetProperty("brand").Clone();
+
+        using var guardado = JsonDocument.Parse(ConfigStore.Serializar(datos));
+        var settings = guardado.RootElement.GetProperty("settings");
+
+        Assert.Equal(JsonValueKind.Object, settings.ValueKind);
+        Assert.Equal("950x700", settings.GetProperty("geometry").GetString());
+        Assert.Equal("A", guardado.RootElement.GetProperty("filaments")[0].GetProperty("brand").GetString());
     }
 
     [Fact]

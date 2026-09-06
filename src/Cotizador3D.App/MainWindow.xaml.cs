@@ -22,8 +22,20 @@ public partial class MainWindow : Window
 
         DataContext = _vm;
         _vm.CalculoExitoso += AlCalcularConExito;
+        Loaded += AlCargarLaVentana;
 
         AplicarGeometria(_vm.ObtenerGeometria());
+    }
+
+    /// <summary>
+    /// Con la ventana ya visible se avisa, si hace falta, que la configuracion
+    /// no se pudo leer y que en esta sesion no se va a guardar nada. Aca el
+    /// cuadro modal tiene ventana padre (B10).
+    /// </summary>
+    private void AlCargarLaVentana(object remitente, RoutedEventArgs e)
+    {
+        Loaded -= AlCargarLaVentana;
+        _vm.AvisarSiLaCargaFallo();
     }
 
     /// <summary>Cada calculo exitoso reanima el panel de resultados.</summary>

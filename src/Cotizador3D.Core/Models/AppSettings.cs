@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace Cotizador3D.Core.Models;
 
 /// <summary>
@@ -48,6 +50,12 @@ public sealed class AppSettings
     /// <summary>Nombre del negocio para el PDF (clave nueva). Clave JSON: <c>nombre_negocio</c>.</summary>
     public string NombreNegocio { get; set; } = NombreNegocioPorDefecto;
 
+    /// <summary>
+    /// Claves desconocidas del objeto "settings". Se conservan tal cual y se
+    /// vuelven a escribir al guardar.
+    /// </summary>
+    public Dictionary<string, JsonElement> Extras { get; set; } = new(StringComparer.Ordinal);
+
     /// <summary>Copia superficial e independiente de esta configuracion.</summary>
     public AppSettings Clonar() => new()
     {
@@ -61,5 +69,6 @@ public sealed class AppSettings
         CostoEnvio = CostoEnvio,
         Geometry = Geometry,
         NombreNegocio = NombreNegocio,
+        Extras = new Dictionary<string, JsonElement>(Extras, StringComparer.Ordinal),
     };
 }

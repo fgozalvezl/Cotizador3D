@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace Cotizador3D.Core.Models;
 
 /// <summary>
@@ -10,6 +12,13 @@ public sealed class AppData
 
     public List<Filament> Filaments { get; set; } = new();
 
+    /// <summary>
+    /// Claves desconocidas del objeto raiz del JSON. Se conservan tal cual y se
+    /// vuelven a escribir al guardar, para no destruir datos de otras versiones
+    /// de la app.
+    /// </summary>
+    public Dictionary<string, JsonElement> Extras { get; set; } = new(StringComparer.Ordinal);
+
     /// <summary>Datos por defecto, equivalentes a <c>get_default_data()</c> del legado.</summary>
     public static AppData PorDefecto() => new();
 
@@ -21,5 +30,6 @@ public sealed class AppData
     {
         Settings = Settings.Clonar(),
         Filaments = Filaments.Select(f => f.Clonar()).ToList(),
+        Extras = new Dictionary<string, JsonElement>(Extras, StringComparer.Ordinal),
     };
 }

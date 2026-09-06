@@ -38,6 +38,39 @@ public class MoneyFormatTests
         Assert.Equal("$ 0,00", MoneyFormat.Moneda(-0d));
     }
 
+    /// <summary>
+    /// Un residuo negativo minusculo (tipico del redondeo del desglose) no
+    /// puede imprimirse como "-0,00".
+    /// </summary>
+    [Theory]
+    [InlineData(-0.0000001d)]
+    [InlineData(-0.001d)]
+    [InlineData(-0.004999d)]
+    [InlineData(-1e-15d)]
+    public void Numero_NegativoDespreciable_SeImprimeComoCero(double valor)
+    {
+        Assert.Equal("0,00", MoneyFormat.Numero(valor));
+        Assert.Equal("$ 0,00", MoneyFormat.Moneda(valor));
+        Assert.Equal("$0,00/kg", MoneyFormat.MonedaPorKg(valor));
+    }
+
+    [Fact]
+    public void Numero_PositivoDespreciable_TambienSeImprimeComoCero()
+    {
+        Assert.Equal("$ 0,00", MoneyFormat.Moneda(0.004d));
+        Assert.Equal("$ 0,01", MoneyFormat.Moneda(0.006d));
+    }
+
+    /// <summary>El umbral acompana a los decimales pedidos, no siempre 0,005.</summary>
+    [Fact]
+    public void Numero_ConOtrosDecimales_SoloRedondeaACeroLoQueCorresponde()
+    {
+        Assert.Equal("-0,0049", MoneyFormat.Numero(-0.0049d, 4));
+        Assert.Equal("0,0000", MoneyFormat.Numero(-0.000049d, 4));
+        Assert.Equal("0,0", MoneyFormat.Numero(-0.04d, 1));
+        Assert.Equal("-0,1", MoneyFormat.Numero(-0.06d, 1));
+    }
+
     [Theory]
     [InlineData(21d, "21")]
     [InlineData(10.5d, "10,5")]

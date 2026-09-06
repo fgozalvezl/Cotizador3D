@@ -40,7 +40,10 @@ public static class MoneyFormat
             throw new ArgumentOutOfRangeException(nameof(decimales));
         }
 
-        var normalizado = valor == 0d ? 0d : valor; // evita "-0,00".
+        // Todo lo que redondearia a cero se imprime como cero positivo: sin
+        // esto, un residuo negativo minusculo sale como "-0,00".
+        var umbralCero = 0.5d * Math.Pow(10d, -decimales);
+        var normalizado = Math.Abs(valor) < umbralCero ? 0d : valor;
         return normalizado.ToString("N" + decimales.ToString(CultureInfo.InvariantCulture), CulturaEsAr);
     }
 

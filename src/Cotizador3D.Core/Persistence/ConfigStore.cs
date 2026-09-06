@@ -11,14 +11,19 @@ namespace Cotizador3D.Core.Persistence;
 /// esquema que la app Python (docs/SPEC-legacy.md 1), para que el usuario no
 /// pierda su configuracion al migrar.
 /// <para>
-/// Carga tolerante (B1/B2): archivo inexistente, vacio, corrupto o con claves
-/// faltantes devuelve los valores por defecto. Los numeros se aceptan como
-/// string o como numero JSON (B13). Guardado atomico (B11/B21) y el directorio
-/// se crea solo al guardar (B19).
+/// Carga tolerante (B1/B2): las claves faltantes toman el valor por defecto y
+/// los numeros se aceptan como string o como numero JSON (B13). Pero un
+/// archivo que existe y NO se puede leer o interpretar se informa como fallo
+/// (<see cref="ConfigLoadResult.CargaFallida"/>) para que la app no lo pise con
+/// los defaults. Guardado atomico (B11/B21) con copia de seguridad previa, y el
+/// directorio se crea solo al guardar (B19).
 /// </para>
 /// </summary>
 public sealed class ConfigStore
 {
+    /// <summary>Sufijo de la copia de seguridad que se hace antes de sobrescribir.</summary>
+    public const string SufijoCopiaDeSeguridad = ".bak";
+
     private const string ClaveSettings = "settings";
     private const string ClaveFilaments = "filaments";
 
@@ -27,6 +32,19 @@ public sealed class ConfigStore
         Indented = true,
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
+
+    private static readonly HashSet<string> ClavesRaizConocidas =
+        new(StringComparer.Ordinal) { ClaveSettings, ClaveFilaments };
+
+    private static readonly HashSet<string> ClavesSettingsConocidas = new(StringComparer.Ordinal)
+    {
+        "precio_kwh", "consumo_w", "desgaste_horas", "precio_repuestos",
+        "margen_error_pct", "iva_luz_pct", "margen_ganancia_x", "costo_envio",
+        "geometry", "nombre_negocio",
+    };
+
+    private static readonly HashSet<string> ClavesFilamentoConocidas =
+        new(StringComparer.Ordinal) { "brand", "type", "price_kg", "id" };
 
     /// <summary>Usa la ruta por defecto del sistema (la misma que el legado).</summary>
     public ConfigStore()
@@ -47,6 +65,9 @@ public sealed class ConfigStore
 
     /// <summary>Ruta absoluta del archivo de configuracion que usa esta instancia.</summary>
     public string RutaArchivo { get; }
+
+    /// <summary>Ruta de la copia de seguridad: la del archivo mas <c>.bak</c>.</summary>
+    public string RutaCopiaDeSeguridad => RutaArchivo + SufijoCopiaDeSeguridad;
 
     /// <summary>Directorio que contiene el archivo de configuracion.</summary>
     public string DirectorioArchivo => Path.GetDirectoryName(RutaArchivo) ?? string.Empty;
@@ -73,33 +94,47 @@ public sealed class ConfigStore
     }
 
     /// <summary>
-    /// Carga los datos. Nunca lanza por contenido invalido: cualquier problema
-    /// de formato cae a los valores por defecto.
+    /// Carga los datos. Nunca lanza: devuelve siempre un
+    /// <see cref="ConfigLoadResult"/>. Si no hay archivo, son los valores por
+    /// defecto y la carga se considera correcta; si el archivo existe pero no
+    /// se puede leer o su contenido no es un objeto JSON valido, se devuelven
+    /// los defaults con <see cref="ConfigLoadResult.CargaFallida"/> en true.
     /// </summary>
-    public AppData Cargar()
+    public ConfigLoadResult Cargar()
     {
+        if (!File.Exists(RutaArchivo) && !Directory.Exists(RutaArchivo))
+        {
+            return ConfigLoadResult.Exito(AppData.PorDefecto());
+        }
+
         string contenido;
         try
         {
-            if (!File.Exists(RutaArchivo))
-            {
-                return AppData.PorDefecto();
-            }
-
             contenido = File.ReadAllText(RutaArchivo, Encoding.UTF8);
         }
-        catch (IOException)
+        catch (FileNotFoundException)
         {
-            return AppData.PorDefecto();
+            // Desaparecio entre el File.Exists y la lectura: es "no hay archivo".
+            return ConfigLoadResult.Exito(AppData.PorDefecto());
         }
-        catch (UnauthorizedAccessException)
+        catch (DirectoryNotFoundException)
         {
-            return AppData.PorDefecto();
+            return ConfigLoadResult.Exito(AppData.PorDefecto());
+        }
+        catch (IOException ex)
+        {
+            return ConfigLoadResult.Fallo($"No se pudo leer el archivo. Detalle: {ex.Message}");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return ConfigLoadResult.Fallo($"No se pudo leer el archivo. Detalle: {ex.Message}");
         }
 
+        // Un archivo vacio no tiene nada que perder: se trata como el legado
+        // (docs/SPEC-legacy.md 1.3, punto 3) y se permite guardar.
         if (string.IsNullOrWhiteSpace(contenido))
         {
-            return AppData.PorDefecto();
+            return ConfigLoadResult.Exito(AppData.PorDefecto());
         }
 
         try
@@ -113,25 +148,28 @@ public sealed class ConfigStore
             var raiz = documento.RootElement;
             if (raiz.ValueKind != JsonValueKind.Object)
             {
-                return AppData.PorDefecto();
+                return ConfigLoadResult.Fallo(
+                    "El contenido del archivo no es un objeto JSON con la configuración.");
             }
 
-            return new AppData
+            return ConfigLoadResult.Exito(new AppData
             {
                 Settings = LeerSettings(raiz),
                 Filaments = LeerFilamentos(raiz),
-            };
+                Extras = LeerExtras(raiz, ClavesRaizConocidas),
+            });
         }
-        catch (JsonException)
+        catch (JsonException ex)
         {
-            return AppData.PorDefecto();
+            return ConfigLoadResult.Fallo($"El archivo está dañado y no se pudo interpretar. Detalle: {ex.Message}");
         }
     }
 
     /// <summary>
     /// Guarda los datos con el esquema legado (valores numericos como string,
-    /// B13). Escritura atomica: archivo temporal + reemplazo. Crea el
-    /// directorio si hace falta.
+    /// B13). Antes de reemplazar un archivo existente hace una copia en
+    /// <see cref="RutaCopiaDeSeguridad"/> (best-effort). Escritura atomica:
+    /// archivo temporal + reemplazo. Crea el directorio si hace falta.
     /// </summary>
     /// <exception cref="IOException">Si no se puede escribir el archivo.</exception>
     public void Guardar(AppData datos)
@@ -145,6 +183,8 @@ public sealed class ConfigStore
         }
 
         var json = Serializar(datos);
+
+        TryCopiaDeSeguridad();
 
         var temporal = RutaArchivo + ".tmp";
         try
@@ -181,6 +221,7 @@ public sealed class ConfigStore
             EscribirNumeroComoString(writer, "costo_envio", s.CostoEnvio);
             writer.WriteString("geometry", s.Geometry ?? CoreConstants.GeometryPorDefecto);
             writer.WriteString("nombre_negocio", s.NombreNegocio ?? string.Empty);
+            EscribirExtras(writer, s.Extras, ClavesSettingsConocidas);
             writer.WriteEndObject();
 
             writer.WriteStartArray(ClaveFilaments);
@@ -191,10 +232,12 @@ public sealed class ConfigStore
                 writer.WriteString("type", filamento.Type ?? string.Empty);
                 writer.WriteNumber("price_kg", filamento.PriceKg);
                 writer.WriteString("id", filamento.Id ?? string.Empty);
+                EscribirExtras(writer, filamento.Extras, ClavesFilamentoConocidas);
                 writer.WriteEndObject();
             }
 
             writer.WriteEndArray();
+            EscribirExtras(writer, datos.Extras, ClavesRaizConocidas);
             writer.WriteEndObject();
         }
 
@@ -203,6 +246,33 @@ public sealed class ConfigStore
 
     private static void EscribirNumeroComoString(Utf8JsonWriter writer, string nombre, double valor) =>
         writer.WriteString(nombre, NumberParser.ToInvariantString(valor));
+
+    /// <summary>
+    /// Vuelve a escribir las claves desconocidas que traia el archivo, para no
+    /// perder datos de otras versiones de la app. Las claves que este
+    /// serializador ya escribe se descartan (nunca se duplica una clave).
+    /// </summary>
+    private static void EscribirExtras(
+        Utf8JsonWriter writer,
+        Dictionary<string, JsonElement>? extras,
+        HashSet<string> conocidas)
+    {
+        if (extras is null)
+        {
+            return;
+        }
+
+        foreach (var (clave, valor) in extras)
+        {
+            if (string.IsNullOrEmpty(clave) || conocidas.Contains(clave) || valor.ValueKind == JsonValueKind.Undefined)
+            {
+                continue;
+            }
+
+            writer.WritePropertyName(clave);
+            valor.WriteTo(writer);
+        }
+    }
 
     private static AppSettings LeerSettings(JsonElement raiz)
     {
@@ -223,6 +293,7 @@ public sealed class ConfigStore
         settings.CostoEnvio = LeerNumero(nodo, "costo_envio", AppSettings.CostoEnvioPorDefecto);
         settings.Geometry = LeerTexto(nodo, "geometry", CoreConstants.GeometryPorDefecto);
         settings.NombreNegocio = LeerTexto(nodo, "nombre_negocio", AppSettings.NombreNegocioPorDefecto);
+        settings.Extras = LeerExtras(nodo, ClavesSettingsConocidas);
 
         return settings;
     }
@@ -251,10 +322,32 @@ public sealed class ConfigStore
                 Brand = LeerTexto(elemento, "brand", string.Empty),
                 Type = LeerTexto(elemento, "type", string.Empty),
                 PriceKg = LeerNumero(elemento, "price_kg", 0d),
+                Extras = LeerExtras(elemento, ClavesFilamentoConocidas),
             });
         }
 
         return filamentos;
+    }
+
+    /// <summary>
+    /// Claves del objeto que este lector no conoce. Se clonan porque el
+    /// <see cref="JsonDocument"/> se libera al terminar la carga.
+    /// </summary>
+    private static Dictionary<string, JsonElement> LeerExtras(JsonElement objeto, HashSet<string> conocidas)
+    {
+        var extras = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
+
+        foreach (var propiedad in objeto.EnumerateObject())
+        {
+            if (conocidas.Contains(propiedad.Name))
+            {
+                continue;
+            }
+
+            extras[propiedad.Name] = propiedad.Value.Clone();
+        }
+
+        return extras;
     }
 
     /// <summary>
@@ -313,6 +406,28 @@ public sealed class ConfigStore
             JsonValueKind.Number => nodo.GetRawText(),
             _ => porDefecto,
         };
+    }
+
+    /// <summary>
+    /// Copia el archivo actual a <c>.bak</c> antes de reemplazarlo. Es
+    /// best-effort: si falla, el guardado sigue igual (la copia es una red de
+    /// seguridad, no un requisito para guardar).
+    /// </summary>
+    private void TryCopiaDeSeguridad()
+    {
+        try
+        {
+            if (File.Exists(RutaArchivo))
+            {
+                File.Copy(RutaArchivo, RutaCopiaDeSeguridad, overwrite: true);
+            }
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
     }
 
     private static void TryBorrar(string ruta)

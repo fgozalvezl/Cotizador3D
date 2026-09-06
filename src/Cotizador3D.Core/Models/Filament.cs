@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace Cotizador3D.Core.Models;
 
 /// <summary>
@@ -22,6 +24,12 @@ public sealed class Filament
     /// <summary>Precio por kilogramo. Clave JSON: <c>price_kg</c>.</summary>
     public double PriceKg { get; set; }
 
+    /// <summary>
+    /// Claves desconocidas de este filamento en el JSON. Se conservan tal cual
+    /// y se vuelven a escribir al guardar.
+    /// </summary>
+    public Dictionary<string, JsonElement> Extras { get; set; } = new(StringComparer.Ordinal);
+
     /// <summary>Texto visible en la UI, con el mismo formato que el legado: "marca (tipo)".</summary>
     public string DisplayName => $"{Brand} ({Type})";
 
@@ -31,6 +39,7 @@ public sealed class Filament
         Brand = Brand,
         Type = Type,
         PriceKg = PriceKg,
+        Extras = new Dictionary<string, JsonElement>(Extras, StringComparer.Ordinal),
     };
 
     public override string ToString() => DisplayName;

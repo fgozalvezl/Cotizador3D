@@ -17,6 +17,15 @@ public sealed class MainViewModel : ObservableObject
 {
     private const string ValorCero = "$ 0,00";
 
+    /// <summary>Un campo de ajustes vacio vale 0 (docs/SPEC-legacy.md 2.1).</summary>
+    private const double VacioEsCero = 0d;
+
+    /// <summary>
+    /// Unica excepcion: el margen de ganancia vacio se GUARDA como 1,5
+    /// (docs/SPEC-legacy.md 3.1.4). Para calcular vale 0, como todo lo demas.
+    /// </summary>
+    private const double GananciaVacia = 1.5d;
+
     private readonly ConfigStore _almacen;
     private readonly IDialogService _dialogos;
     private readonly IFileDialogService _archivos;
@@ -64,6 +73,12 @@ public sealed class MainViewModel : ObservableObject
     private Filament? _filamentoDelCalculo;
     private double _gramosDelCalculo;
 
+    /// <summary>Motivo por el que no se pudo leer la configuracion, si hubo uno.</summary>
+    private readonly string? _motivoCargaFallida;
+
+    /// <summary>true si ya se le aviso al usuario que el guardado esta bloqueado.</summary>
+    private bool _avisoDeCargaMostrado;
+
     public MainViewModel(
         ConfigStore almacen,
         IDialogService dialogos,
@@ -77,7 +92,14 @@ public sealed class MainViewModel : ObservableObject
         _ventanas = ventanas ?? throw new ArgumentNullException(nameof(ventanas));
         _pdf = pdf ?? throw new ArgumentNullException(nameof(pdf));
 
-        _datos = _almacen.Cargar();
+        var carga = _almacen.Cargar();
+        _datos = carga.Datos;
+
+        // El archivo existe pero no se pudo leer: se trabaja con los defaults
+        // en memoria, pero NO se guarda nada (si no, el autoguardado pisaria la
+        // configuracion real del usuario con valores de fabrica).
+        GuardadoBloqueado = carga.CargaFallida;
+        _motivoCargaFallida = carga.Motivo;
 
         var s = _datos.Settings;
         _precioKwhTexto = TextoNumerico.Formatear(s.PrecioKwh);
@@ -322,9 +344,13 @@ public sealed class MainViewModel : ObservableObject
         private set => SetProperty(ref _tiempoCalculadoTexto, value);
     }
 
-    /// <summary>Etiqueta viva del IVA: "IVA Luz (21%):" (B14).</summary>
+    /// <summary>
+    /// Etiqueta del IVA: "IVA Luz (21%):" (B14). Mientras haya un resultado en
+    /// pantalla usa el porcentaje CON EL QUE SE CALCULO, no el que se este
+    /// tipeando: el rotulo y el importe siempre corresponden al mismo calculo.
+    /// </summary>
     public string EtiquetaIvaLuz =>
-        $"IVA Luz ({MoneyFormat.Porcentaje(_datos.Settings.IvaLuzPct)}%):";
+        $"IVA Luz ({MoneyFormat.Porcentaje(_ultimoResultado?.IvaLuzPct ?? _datos.Settings.IvaLuzPct)}%):";
 
     public bool MostrarEnvio
     {
@@ -355,6 +381,13 @@ public sealed class MainViewModel : ObservableObject
         get => _mensajeAdvertencia;
         private set => SetProperty(ref _mensajeAdvertencia, value);
     }
+
+    /// <summary>
+    /// true cuando la configuracion existente no se pudo leer: el autoguardado
+    /// y la persistencia de filamentos quedan deshabilitados hasta que se
+    /// reabra la app, para no pisar el archivo del usuario.
+    /// </summary>
+    public bool GuardadoBloqueado { get; }
 
     /// <summary>Solo se puede exportar despues de un calculo exitoso.</summary>
     public bool PuedeExportar
@@ -397,7 +430,10 @@ public sealed class MainViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(geometria);
         AplicarAjustes();
         _datos.Settings.Geometry = geometria.Formatear();
-        Persistir();
+
+        // Al cerrar, el aviso en linea ya no se ve: el fallo se informa con un
+        // cuadro modal (sin cancelar el cierre).
+        Persistir(modal: true);
     }
 
     /// <summary>Autoguardado: se llama al perder el foco un campo de ajustes.</summary>
@@ -407,6 +443,32 @@ public sealed class MainViewModel : ObservableObject
         Persistir();
     }
 
+    /// <summary>
+    /// Avisa (una sola vez, con la ventana ya visible) que la configuracion
+    /// guardada no se pudo leer y que nada se va a guardar en esta sesion.
+    /// </summary>
+    public void AvisarSiLaCargaFallo()
+    {
+        if (!GuardadoBloqueado || _avisoDeCargaMostrado)
+        {
+            return;
+        }
+
+        _avisoDeCargaMostrado = true;
+
+        var detalle = string.IsNullOrWhiteSpace(_motivoCargaFallida)
+            ? string.Empty
+            : Environment.NewLine + Environment.NewLine + _motivoCargaFallida;
+
+        _dialogos.MostrarError(
+            "No se pudo leer la configuración",
+            $"El archivo {_almacen.RutaArchivo} existe pero no se pudo leer.{detalle}" +
+            Environment.NewLine + Environment.NewLine +
+            "Se están usando los valores por defecto y, para no pisar tu configuración, " +
+            "NO se va a guardar ningún cambio (ni ajustes, ni filamentos, ni el tamaño de la ventana) " +
+            "hasta que arregles el archivo y vuelvas a abrir la app. Podés seguir cotizando normalmente.");
+    }
+
     // ---------------------------------------------------------------- Logica
 
     private Filament? FilamentoSeleccionado => _datos.BuscarFilamento(FilamentoSeleccionadoId);
@@ -414,47 +476,52 @@ public sealed class MainViewModel : ObservableObject
     /// <summary>
     /// Vuelca a la configuracion los campos que parsean bien; los invalidos se
     /// ignoran (B8: se guarda lo valido, sin cancelar todo).
+    /// <para>
+    /// Un campo vacio vale 0, salvo el margen de ganancia, que vale 1,5
+    /// (docs/SPEC-legacy.md 3.1.4: los defaults del autoguardado son "0" y
+    /// "1.5", NO los valores de fabrica).
+    /// </para>
     /// </summary>
     private void AplicarAjustes()
     {
         var s = _datos.Settings;
 
-        if (NumberParser.TryParse(PrecioKwhTexto, out var kwh, AppSettings.PrecioKwhPorDefecto) && kwh >= 0)
+        if (NumberParser.TryParse(PrecioKwhTexto, out var kwh, VacioEsCero) && kwh >= 0)
         {
             s.PrecioKwh = kwh;
         }
 
-        if (NumberParser.TryParse(ConsumoWTexto, out var consumo, AppSettings.ConsumoWPorDefecto) && consumo >= 0)
+        if (NumberParser.TryParse(ConsumoWTexto, out var consumo, VacioEsCero) && consumo >= 0)
         {
             s.ConsumoW = consumo;
         }
 
-        if (NumberParser.TryParse(DesgasteHorasTexto, out var desgaste, AppSettings.DesgasteHorasPorDefecto) && desgaste >= 0)
+        if (NumberParser.TryParse(DesgasteHorasTexto, out var desgaste, VacioEsCero) && desgaste >= 0)
         {
             s.DesgasteHoras = desgaste;
         }
 
-        if (NumberParser.TryParse(PrecioRepuestosTexto, out var repuestos, AppSettings.PrecioRepuestosPorDefecto) && repuestos >= 0)
+        if (NumberParser.TryParse(PrecioRepuestosTexto, out var repuestos, VacioEsCero) && repuestos >= 0)
         {
             s.PrecioRepuestos = repuestos;
         }
 
-        if (NumberParser.TryParse(MargenErrorTexto, out var margenError, AppSettings.MargenErrorPctPorDefecto) && margenError >= 0)
+        if (NumberParser.TryParse(MargenErrorTexto, out var margenError, VacioEsCero) && margenError >= 0)
         {
             s.MargenErrorPct = margenError;
         }
 
-        if (NumberParser.TryParse(IvaLuzTexto, out var iva, AppSettings.IvaLuzPctPorDefecto) && iva >= 0)
+        if (NumberParser.TryParse(IvaLuzTexto, out var iva, VacioEsCero) && iva >= 0)
         {
             s.IvaLuzPct = iva;
         }
 
-        if (NumberParser.TryParse(MargenGananciaTexto, out var ganancia, AppSettings.MargenGananciaPorDefecto) && ganancia >= 0)
+        if (NumberParser.TryParse(MargenGananciaTexto, out var ganancia, GananciaVacia) && ganancia >= 0)
         {
             s.MargenGanancia = ganancia;
         }
 
-        if (NumberParser.TryParse(CostoEnvioTexto, out var envio, AppSettings.CostoEnvioPorDefecto) && envio >= 0)
+        if (NumberParser.TryParse(CostoEnvioTexto, out var envio, VacioEsCero) && envio >= 0)
         {
             s.CostoEnvio = envio;
         }
@@ -464,8 +531,21 @@ public sealed class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(EtiquetaIvaLuz));
     }
 
-    private void Persistir()
+    /// <summary>
+    /// Persiste todo el archivo. No hace nada si el guardado esta bloqueado
+    /// porque la configuracion existente no se pudo leer.
+    /// </summary>
+    /// <param name="modal">
+    /// true para informar el error con un cuadro modal (camino de cierre, donde
+    /// el aviso en linea ya no se llega a ver); false para el aviso en linea.
+    /// </param>
+    private void Persistir(bool modal = false)
     {
+        if (GuardadoBloqueado)
+        {
+            return;
+        }
+
         try
         {
             _almacen.Guardar(_datos);
@@ -473,7 +553,15 @@ public sealed class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             // B11: un fallo de guardado tiene que verse.
-            MostrarError($"No se pudo guardar la configuración en {_almacen.RutaArchivo}. Detalle: {ex.Message}");
+            var mensaje = $"No se pudo guardar la configuración en {_almacen.RutaArchivo}. Detalle: {ex.Message}";
+            if (modal)
+            {
+                _dialogos.MostrarError("No se pudo guardar la configuración", mensaje);
+            }
+            else
+            {
+                MostrarError(mensaje);
+            }
         }
     }
 
@@ -526,19 +614,22 @@ public sealed class MainViewModel : ObservableObject
 
     /// <summary>
     /// Lee los 8 parametros de la UI de forma estricta: un texto invalido
-    /// aborta el calculo con un mensaje claro.
+    /// aborta el calculo con un mensaje claro. Un campo VACIO vale 0 en TODOS
+    /// los casos (docs/SPEC-legacy.md 2.1: `get_float_from_entry` usa
+    /// default="0" para los diez campos que lee `calculate`), igual que dice el
+    /// marcador del campo.
     /// </summary>
     private AppSettings LeerSettingsDeLaUi()
     {
         var s = _datos.Settings.Clonar();
-        s.PrecioKwh = NumberParser.Parse(PrecioKwhTexto, AppSettings.PrecioKwhPorDefecto, "Precio Kwh");
-        s.ConsumoW = NumberParser.Parse(ConsumoWTexto, AppSettings.ConsumoWPorDefecto, "Consumo real por hora (W)");
-        s.DesgasteHoras = NumberParser.Parse(DesgasteHorasTexto, AppSettings.DesgasteHorasPorDefecto, "Vida útil de la Máquina (horas)");
-        s.PrecioRepuestos = NumberParser.Parse(PrecioRepuestosTexto, AppSettings.PrecioRepuestosPorDefecto, "Costo Repuestos");
-        s.MargenErrorPct = NumberParser.Parse(MargenErrorTexto, AppSettings.MargenErrorPctPorDefecto, "% de Margen de error");
-        s.IvaLuzPct = NumberParser.Parse(IvaLuzTexto, AppSettings.IvaLuzPctPorDefecto, "% de IVA Luz");
-        s.MargenGanancia = NumberParser.Parse(MargenGananciaTexto, AppSettings.MargenGananciaPorDefecto, "Margen de Ganancia (x)");
-        s.CostoEnvio = NumberParser.Parse(CostoEnvioTexto, AppSettings.CostoEnvioPorDefecto, "Costo de Envío");
+        s.PrecioKwh = NumberParser.Parse(PrecioKwhTexto, VacioEsCero, "Precio Kwh");
+        s.ConsumoW = NumberParser.Parse(ConsumoWTexto, VacioEsCero, "Consumo real por hora (W)");
+        s.DesgasteHoras = NumberParser.Parse(DesgasteHorasTexto, VacioEsCero, "Vida útil de la Máquina (horas)");
+        s.PrecioRepuestos = NumberParser.Parse(PrecioRepuestosTexto, VacioEsCero, "Costo Repuestos");
+        s.MargenErrorPct = NumberParser.Parse(MargenErrorTexto, VacioEsCero, "% de Margen de error");
+        s.IvaLuzPct = NumberParser.Parse(IvaLuzTexto, VacioEsCero, "% de IVA Luz");
+        s.MargenGanancia = NumberParser.Parse(MargenGananciaTexto, VacioEsCero, "Margen de Ganancia (x)");
+        s.CostoEnvio = NumberParser.Parse(CostoEnvioTexto, VacioEsCero, "Costo de Envío");
         s.NombreNegocio = NombreNegocio ?? string.Empty;
         return s;
     }
@@ -564,6 +655,9 @@ public sealed class MainViewModel : ObservableObject
         _gramosDelCalculo = entrada.Gramos;
         PuedeExportar = true;
 
+        // La etiqueta del IVA pasa a describir ESTE calculo.
+        OnPropertyChanged(nameof(EtiquetaIvaLuz));
+
         CalculoExitoso?.Invoke(this, EventArgs.Empty);
     }
 
@@ -585,6 +679,9 @@ public sealed class MainViewModel : ObservableObject
         _filamentoDelCalculo = null;
         _gramosDelCalculo = 0;
         PuedeExportar = false;
+
+        // Sin resultado, la etiqueta vuelve a describir el ajuste actual.
+        OnPropertyChanged(nameof(EtiquetaIvaLuz));
     }
 
     private void MostrarError(string mensaje)
@@ -601,7 +698,7 @@ public sealed class MainViewModel : ObservableObject
 
     private void GestionarFilamentos()
     {
-        var gestor = new FilamentManagerViewModel(_datos, _dialogos, _ventanas, Persistir);
+        var gestor = new FilamentManagerViewModel(_datos, _dialogos, _ventanas, () => Persistir());
         _ventanas.MostrarGestorDeFilamentos(gestor);
         RefrescarFilamentos(FilamentoSeleccionadoId);
     }
