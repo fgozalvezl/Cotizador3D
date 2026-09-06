@@ -115,7 +115,11 @@ public sealed class MainViewModel : ObservableObject
         Filamentos = new ObservableCollection<Filament>();
 
         CalcularCommand = new RelayCommand(Calcular);
-        GestionarFilamentosCommand = new RelayCommand(GestionarFilamentos);
+
+        // Con el guardado bloqueado, cualquier cambio de filamentos se
+        // perderia sin aviso: el gestor no se abre. El flag ya quedo fijado
+        // arriba y no vuelve a cambiar, asi que el comando nace deshabilitado.
+        GestionarFilamentosCommand = new RelayCommand(GestionarFilamentos, () => !GuardadoBloqueado);
         ExportarPdfCommand = new RelayCommand(ExportarPdf, () => PuedeExportar);
         GuardarConfiguracionCommand = new RelayCommand(GuardarConfiguracion);
         DescartarErrorCommand = new RelayCommand(() => HayError = false);
@@ -385,7 +389,9 @@ public sealed class MainViewModel : ObservableObject
     /// <summary>
     /// true cuando la configuracion existente no se pudo leer: el autoguardado
     /// y la persistencia de filamentos quedan deshabilitados hasta que se
-    /// reabra la app, para no pisar el archivo del usuario.
+    /// reabra la app, para no pisar el archivo del usuario. Se fija en el
+    /// constructor (antes de crear los comandos) y no vuelve a cambiar, por eso
+    /// <see cref="GestionarFilamentosCommand"/> no necesita refrescarse.
     /// </summary>
     public bool GuardadoBloqueado { get; }
 
@@ -406,6 +412,10 @@ public sealed class MainViewModel : ObservableObject
 
     public RelayCommand CalcularCommand { get; }
 
+    /// <summary>
+    /// Abre el gestor de filamentos. Deshabilitado si el guardado esta
+    /// bloqueado: los cambios no se podrian persistir.
+    /// </summary>
     public RelayCommand GestionarFilamentosCommand { get; }
 
     public RelayCommand ExportarPdfCommand { get; }

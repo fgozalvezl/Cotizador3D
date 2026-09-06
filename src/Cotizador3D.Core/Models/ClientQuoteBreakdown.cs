@@ -17,7 +17,11 @@ public sealed record ClientQuoteLine(string Concepto, double Importe);
 /// <para>
 /// Todos los importes se redondean a 2 decimales al construir el desglose (los
 /// mismos 2 decimales con que se imprimen), asi la columna impresa suma
-/// exactamente el total impreso.
+/// exactamente el total impreso. El total se ancla en
+/// <c>round(precio_final_con_envio)</c> (lo mismo que muestra la ventana
+/// principal) y el residuo del redondeo lo absorbe la linea de costo MAS
+/// GRANDE de las que se muestran: ninguna linea se vuelve negativa por un
+/// centavo de redondeo.
 /// </para>
 /// </summary>
 public sealed class ClientQuoteBreakdown
@@ -37,6 +41,7 @@ public sealed class ClientQuoteBreakdown
         double ivaLuz,
         double desgaste,
         double margenError,
+        bool mostrarMargenError,
         double envio,
         double total,
         string conceptoIvaLuz)
@@ -56,8 +61,12 @@ public sealed class ClientQuoteBreakdown
             new(ConceptoLuz, luz),
             new(conceptoIvaLuz, ivaLuz),
             new(ConceptoDesgaste, desgaste),
-            new(ConceptoMargenError, margenError),
         };
+
+        if (mostrarMargenError)
+        {
+            lineas.Add(new ClientQuoteLine(ConceptoMargenError, margenError));
+        }
 
         if (envio > 0)
         {
@@ -67,7 +76,11 @@ public sealed class ClientQuoteBreakdown
         Lineas = lineas;
     }
 
-    /// <summary>Material ya escalado por el margen, redondeado a 2 decimales.</summary>
+    /// <summary>
+    /// Material ya escalado por el margen, redondeado a 2 decimales. Como toda
+    /// linea de costo, puede llevar el residuo del redondeo si resulta ser la
+    /// mas grande del desglose.
+    /// </summary>
     public double Material { get; }
 
     /// <summary>Energia electrica (sin IVA) ya escalada por el margen, redondeada a 2 decimales.</summary>
@@ -80,22 +93,25 @@ public sealed class ClientQuoteBreakdown
     public double Desgaste { get; }
 
     /// <summary>
-    /// Margen de error ya escalado. Absorbe el residuo del redondeo para que la
-    /// suma de las lineas de costo sea exactamente el precio de venta
-    /// redondeado a 2 decimales.
+    /// Margen de error ya escalado por el margen, redondeado a 2 decimales.
+    /// Vale 0 cuando <c>margen_error_pct</c> es 0, y en ese caso la linea NO se
+    /// emite (misma regla que el envio) ni participa del reparto del residuo.
     /// </summary>
     public double MargenError { get; }
 
     /// <summary>Costo de envio redondeado (no se escala: se suma despues del margen).</summary>
     public double Envio { get; }
 
-    /// <summary>Total a pagar: precio_venta + envio, ambos redondeados a 2 decimales.</summary>
+    /// <summary>Total a pagar: <c>precio_final_con_envio</c> redondeado a 2 decimales.</summary>
     public double Total { get; }
 
     /// <summary>Rotulo de la linea de IVA, con el porcentaje: "IVA energía (21%)".</summary>
     public string ConceptoIvaLuz { get; }
 
-    /// <summary>Lineas a mostrar, en orden. Incluye el envio solo si es mayor a cero.</summary>
+    /// <summary>
+    /// Lineas a mostrar, en orden. Incluye el margen de error solo si el
+    /// porcentaje configurado es mayor a cero, y el envio solo si es mayor a cero.
+    /// </summary>
     public IReadOnlyList<ClientQuoteLine> Lineas { get; }
 
     /// <summary>
@@ -113,30 +129,85 @@ public sealed class ClientQuoteBreakdown
         var m = resultado.MargenGanancia;
 
         // Se redondea cada linea a los mismos 2 decimales con que se imprime.
-        var material = Redondear(resultado.PrecioMaterial * m);
-        var luz = Redondear(resultado.PrecioLuz * m);
-        var ivaLuz = Redondear(resultado.IvaLuzValor * m);
-        var desgaste = Redondear(resultado.DesgasteMaquina * m);
+        var margenError = Redondear(resultado.MargenErrorValor * m);
 
-        var precioVenta = Redondear(resultado.PrecioVenta);
+        // Con margen de error 0% la linea no aporta nada: no se emite (misma
+        // regla que el envio), asi nunca se imprime un "$ -0,01" de residuo.
+        var mostrarMargenError = resultado.MargenErrorPct > 0;
+
+        // El total es el precio final redondeado: exactamente el importe que
+        // muestra la ventana principal.
+        var total = Redondear(resultado.PrecioFinalConEnvio);
         var envio = Redondear(resultado.CostoEnvio);
+        var precioVenta = Restar(total, envio);
 
-        // El margen de error cierra la suma: es el precio de venta redondeado
-        // menos las demas lineas YA redondeadas, de modo que la columna impresa
-        // sume exactamente el total impreso.
-        var margenError = Redondear(precioVenta - Sumar(new[] { material, luz, ivaLuz, desgaste }));
+        // Lineas de costo que se emiten, en orden de aparicion.
+        var costos = mostrarMargenError
+            ? new[]
+            {
+                Redondear(resultado.PrecioMaterial * m),
+                Redondear(resultado.PrecioLuz * m),
+                Redondear(resultado.IvaLuzValor * m),
+                Redondear(resultado.DesgasteMaquina * m),
+                margenError,
+            }
+            : new[]
+            {
+                Redondear(resultado.PrecioMaterial * m),
+                Redondear(resultado.PrecioLuz * m),
+                Redondear(resultado.IvaLuzValor * m),
+                Redondear(resultado.DesgasteMaquina * m),
+            };
+
+        RepartirResiduo(costos, Restar(precioVenta, Sumar(costos)));
+
+        if (mostrarMargenError)
+        {
+            margenError = costos[4];
+        }
 
         var conceptoIva = $"IVA energía ({MoneyFormat.Porcentaje(resultado.IvaLuzPct)}%)";
 
         return new ClientQuoteBreakdown(
-            material,
-            luz,
-            ivaLuz,
-            desgaste,
+            costos[0],
+            costos[1],
+            costos[2],
+            costos[3],
             margenError,
+            mostrarMargenError,
             envio,
-            Sumar(new[] { precioVenta, envio }),
+            total,
             conceptoIva);
+    }
+
+    /// <summary>
+    /// Suma el residuo del redondeo a la linea de costo MAS GRANDE, que es la
+    /// que puede absorberlo sin distorsionarse (unos centavos sobre el importe
+    /// mayor). Si el residuo es negativo y no entra entero en esa linea, sigue
+    /// por la siguiente mas grande: asi la suma cierra exacta y ninguna linea
+    /// queda negativa (el total de las lineas nunca es menor al residuo a
+    /// descontar, porque el precio de venta no es negativo).
+    /// </summary>
+    private static void RepartirResiduo(double[] costos, double residuo)
+    {
+        var porTamano = Enumerable.Range(0, costos.Length)
+            .OrderByDescending(i => costos[i])
+            .ToList();
+
+        foreach (var i in porTamano)
+        {
+            if (residuo == 0d)
+            {
+                return;
+            }
+
+            // El residuo positivo entra entero; el negativo, hasta dejar la
+            // linea en cero.
+            var ajuste = residuo > 0d ? residuo : Math.Max(residuo, -costos[i]);
+
+            costos[i] = Sumar(new[] { costos[i], ajuste });
+            residuo = Restar(residuo, ajuste);
+        }
     }
 
     /// <summary>
@@ -174,4 +245,8 @@ public sealed class ClientQuoteBreakdown
 
         return (double)total;
     }
+
+    /// <summary>Resta dos importes de 2 decimales, con la exactitud de <see cref="Sumar"/>.</summary>
+    private static double Restar(double minuendo, double sustraendo) =>
+        Sumar(new[] { minuendo, -sustraendo });
 }

@@ -15,8 +15,9 @@ namespace Cotizador3D.Core.Persistence;
 /// los numeros se aceptan como string o como numero JSON (B13). Pero un
 /// archivo que existe y NO se puede leer o interpretar se informa como fallo
 /// (<see cref="ConfigLoadResult.CargaFallida"/>) para que la app no lo pise con
-/// los defaults. Guardado atomico (B11/B21) con copia de seguridad previa, y el
-/// directorio se crea solo al guardar (B19).
+/// los defaults. Guardado atomico (B11/B21) con copia de seguridad previa (la
+/// primera de cada sesion, que conserva el estado inicial), y el directorio se
+/// crea solo al guardar (B19).
 /// </para>
 /// </summary>
 public sealed class ConfigStore
@@ -45,6 +46,13 @@ public sealed class ConfigStore
 
     private static readonly HashSet<string> ClavesFilamentoConocidas =
         new(StringComparer.Ordinal) { "brand", "type", "price_kg", "id" };
+
+    /// <summary>
+    /// true cuando ya se hizo la copia de seguridad de esta instancia: la
+    /// <c>.bak</c> guarda el estado con el que arranco la sesion, no el del
+    /// guardado anterior.
+    /// </summary>
+    private bool _copiaDeSeguridadHecha;
 
     /// <summary>Usa la ruta por defecto del sistema (la misma que el legado).</summary>
     public ConfigStore()
@@ -167,8 +175,9 @@ public sealed class ConfigStore
 
     /// <summary>
     /// Guarda los datos con el esquema legado (valores numericos como string,
-    /// B13). Antes de reemplazar un archivo existente hace una copia en
-    /// <see cref="RutaCopiaDeSeguridad"/> (best-effort). Escritura atomica:
+    /// B13). La primera vez que esta instancia reemplaza un archivo existente
+    /// hace una copia en <see cref="RutaCopiaDeSeguridad"/> (best-effort), que
+    /// queda con el estado del inicio de la sesion. Escritura atomica:
     /// archivo temporal + reemplazo. Crea el directorio si hace falta.
     /// </summary>
     /// <exception cref="IOException">Si no se puede escribir el archivo.</exception>
@@ -409,17 +418,25 @@ public sealed class ConfigStore
     }
 
     /// <summary>
-    /// Copia el archivo actual a <c>.bak</c> antes de reemplazarlo. Es
-    /// best-effort: si falla, el guardado sigue igual (la copia es una red de
-    /// seguridad, no un requisito para guardar).
+    /// Copia el archivo actual a <c>.bak</c> antes de reemplazarlo, UNA sola
+    /// vez por instancia: asi la copia conserva la configuracion con la que
+    /// arranco la sesion y no la va pisando cada autoguardado. Es best-effort:
+    /// si falla, el guardado sigue igual (la copia es una red de seguridad, no
+    /// un requisito para guardar) y se reintenta en el proximo guardado.
     /// </summary>
     private void TryCopiaDeSeguridad()
     {
+        if (_copiaDeSeguridadHecha)
+        {
+            return;
+        }
+
         try
         {
             if (File.Exists(RutaArchivo))
             {
                 File.Copy(RutaArchivo, RutaCopiaDeSeguridad, overwrite: true);
+                _copiaDeSeguridadHecha = true;
             }
         }
         catch (IOException)

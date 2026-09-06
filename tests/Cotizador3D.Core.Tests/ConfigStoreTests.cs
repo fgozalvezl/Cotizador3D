@@ -527,8 +527,13 @@ public class ConfigStoreTests
         Assert.Equal(4321d, store.Cargar().Datos.Settings.CostoEnvio);
     }
 
+    /// <summary>
+    /// La copia se hace UNA vez por instancia: conserva el estado con el que
+    /// arranco la sesion, no el del guardado anterior (si no, con el
+    /// autoguardado la .bak termina siendo tan nueva como el archivo).
+    /// </summary>
     [Fact]
-    public void Guardar_CopiaDeSeguridad_SeReemplazaEnCadaGuardado()
+    public void Guardar_CopiaDeSeguridad_SeMantieneLaDelPrimerGuardado()
     {
         using var temp = new DirectorioTemporal();
         var store = new ConfigStore(temp.Archivo());
@@ -545,8 +550,37 @@ public class ConfigStoreTests
 
         var copia = new ConfigStore(store.RutaCopiaDeSeguridad).Cargar();
         Assert.False(copia.CargaFallida);
-        Assert.Equal(2d, copia.Datos.Settings.CostoEnvio);
+        Assert.Equal(1d, copia.Datos.Settings.CostoEnvio);
         Assert.Equal(3d, store.Cargar().Datos.Settings.CostoEnvio);
+    }
+
+    /// <summary>
+    /// Una instancia nueva es una sesion nueva: vuelve a copiar, con el estado
+    /// que encontro al empezar.
+    /// </summary>
+    [Fact]
+    public void Guardar_InstanciaNueva_HaceUnaCopiaDeSeguridadNueva()
+    {
+        using var temp = new DirectorioTemporal();
+
+        var primera = new ConfigStore(temp.Archivo());
+        var datos = AppData.PorDefecto();
+        datos.Settings.CostoEnvio = 1;
+        primera.Guardar(datos);
+
+        datos.Settings.CostoEnvio = 2;
+        primera.Guardar(datos);
+
+        // La copia de la primera sesion tiene el estado inicial.
+        Assert.Equal(1d, new ConfigStore(primera.RutaCopiaDeSeguridad).Cargar().Datos.Settings.CostoEnvio);
+
+        var segunda = new ConfigStore(temp.Archivo());
+        datos.Settings.CostoEnvio = 3;
+        segunda.Guardar(datos);
+
+        // La sesion nueva copio lo que encontro al arrancar (2), no el 1 viejo.
+        Assert.Equal(2d, new ConfigStore(segunda.RutaCopiaDeSeguridad).Cargar().Datos.Settings.CostoEnvio);
+        Assert.Equal(3d, segunda.Cargar().Datos.Settings.CostoEnvio);
     }
 
     // ------------------------------------------- claves desconocidas (extras)
