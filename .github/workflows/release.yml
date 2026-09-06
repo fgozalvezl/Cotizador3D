@@ -1,0 +1,35 @@
+name: release
+
+# Al pushear un tag vX.Y.Z se compila el .exe en Windows, se corren los tests
+# y se publica un Release de GitHub con el ejecutable adjunto.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - run: dotnet test Cotizador3D.sln -c Release
+      - run: dotnet publish src/Cotizador3D.App/Cotizador3D.App.csproj -c Release -o publish
+      - name: Empaquetar
+        shell: pwsh
+        run: |
+          Compress-Archive -Path publish/Cotizador3D.exe, publish/LatoFont -DestinationPath "Cotizador3D-${{ github.ref_name }}-win-x64.zip"
+      - name: Crear release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" `
+            "publish/Cotizador3D.exe" `
+            "Cotizador3D-${{ github.ref_name }}-win-x64.zip" `
+            --title "Cotizador3D ${{ github.ref_name }}" `
+            --generate-notes
