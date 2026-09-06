@@ -1,9 +1,12 @@
 # Cotizador3D
 
-App de escritorio en Python (customtkinter) para cotizar impresiones 3D.
-Todo el codigo vive en `cotizador.py`. La configuracion del usuario se guarda
-en `%LOCALAPPDATA%/Cotizador3D/config_impresion3d.json` (o `~` si no existe
-la variable).
+App de escritorio para Windows que cotiza impresiones 3D. Version 2 en
+C# / .NET 8 + WPF: `src/Cotizador3D.Core` (logica, sin UI), `src/Cotizador3D.App`
+(WPF), `tests/` (xUnit). La version 1 en Python quedo en `legacy/cotizador.py`
+solo como referencia; su comportamiento esta en `docs/SPEC-legacy.md` y las
+decisiones del rebuild en `docs/DECISIONS.md`. La configuracion del usuario se
+guarda en `%LOCALAPPDATA%/Cotizador3D/config_impresion3d.json` (o `~` si no
+existe la variable) con el mismo esquema en ambas versiones.
 
 ## Modo de trabajo: chief of staff + agentes Opus 5
 
@@ -34,8 +37,11 @@ Reglas para el chief of staff:
 ## Verificacion minima
 
 ```
-python -m py_compile cotizador.py
+export PATH=$PATH:/root/.dotnet   # en este entorno remoto
+dotnet build Cotizador3D.sln -c Release   # 0 warnings (TreatWarningsAsErrors)
+dotnet test  Cotizador3D.sln
+dotnet publish src/Cotizador3D.App -c Release -o publish   # .exe unico win-x64
 ```
 
-No hay tests automatizados todavia. La app requiere entorno grafico para
-ejecutarse.
+La UI WPF compila en Linux (EnableWindowsTargeting) pero solo corre en
+Windows: los cambios de XAML se revisan con rigor porque no se ejecutan aca.
