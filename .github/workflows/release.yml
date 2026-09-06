@@ -1,10 +1,18 @@
 name: release
 
-# Al pushear un tag vX.Y.Z se compila el .exe en Windows, se corren los tests
-# y se publica un Release de GitHub con el ejecutable adjunto.
+# Publica un Release de GitHub con el .exe adjunto. Se dispara de dos formas:
+#  - pusheando un tag vX.Y.Z, o
+#  - manualmente (workflow_dispatch) indicando la version: en ese caso el
+#    propio workflow crea el tag sobre el commit elegido.
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version a publicar, por ejemplo v2.0.0"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -12,6 +20,8 @@ permissions:
 jobs:
   release:
     runs-on: windows-latest
+    env:
+      VERSION: ${{ inputs.version || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -22,14 +32,15 @@ jobs:
       - name: Empaquetar
         shell: pwsh
         run: |
-          Compress-Archive -Path publish/Cotizador3D.exe, publish/LatoFont -DestinationPath "Cotizador3D-${{ github.ref_name }}-win-x64.zip"
+          Compress-Archive -Path publish/Cotizador3D.exe, publish/LatoFont -DestinationPath "Cotizador3D-$env:VERSION-win-x64.zip"
       - name: Crear release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" `
+          gh release create "$env:VERSION" `
             "publish/Cotizador3D.exe" `
-            "Cotizador3D-${{ github.ref_name }}-win-x64.zip" `
-            --title "Cotizador3D ${{ github.ref_name }}" `
+            "Cotizador3D-$env:VERSION-win-x64.zip" `
+            --target "${{ github.sha }}" `
+            --title "Cotizador3D $env:VERSION" `
             --generate-notes
