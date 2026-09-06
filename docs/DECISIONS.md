@@ -19,8 +19,13 @@ redondeo intermedio, `double`). Ningun cambio de negocio.
   resta.
 - El desglose interno (con costo real y ganancia) sigue visible solo en la UI.
 - El PDF incluye: nombre del negocio (opcional, configurable), fecha, nombre
-  del trabajo/cliente (opcional), cantidad de piezas, filamento (marca y tipo),
-  gramos, tiempo de impresion, tabla de desglose y total. Textos en espanol.
+  del cliente y del trabajo (opcionales, se piden al exportar), filamento
+  (marca y tipo), gramos, tiempo de impresion, tabla de desglose y total.
+  Textos en espanol. No hay "cantidad de piezas": la cotizacion es por trabajo,
+  como en la app original.
+- Contrato: `Cotizador3D.Core.Export.QuotePdfExporter.Exportar(QuoteResult,
+  ClientQuoteInfo, string rutaSalida)` con `ClientQuoteInfo { NombreNegocio,
+  Cliente, Trabajo, Filamento, Gramos, HorasImpresion, Fecha }`.
 
 ## Bugs del legado: que se corrige
 
@@ -30,7 +35,7 @@ redondeo intermedio, `double`). Ningun cambio de negocio.
 | B3, B10 | Corregir: errores de validacion como avisos en la UI, no como excepciones. |
 | B4 | Corregir: rotulo consistente "PRECIO FINAL". |
 | B5 | Corregir: al fallar un calculo se limpian los resultados. |
-| B6 | Corregir: cada filamento tiene un `id` (GUID) y la seleccion usa el id, no el string. Se conserva `brand (type)` como texto visible. |
+| B6 | Corregir: cada filamento tiene un `id` (string; se conservan los ids legados, los faltantes reciben un GUID) y la seleccion usa el id, no el string. Se conserva `brand (type)` como texto visible. |
 | B7 | Mantener el comportamiento (desgaste 0 si vida util <= 0) pero mostrar un aviso. |
 | B8 | Corregir: se guarda lo valido; la geometria se guarda siempre. |
 | B9 | Corregir: formato es-AR (`$ 1.234,56`) en UI y PDF, dos decimales. |
@@ -48,6 +53,7 @@ de ortografia del original.
 
 ## Compatibilidad del JSON
 
-Misma ruta y mismo esquema. Claves nuevas que se agregan a `settings`:
-`nombre_negocio` (string, default ""). Los filamentos sin `id` reciben un GUID
-al cargar. Todo lo demas intacto.
+Misma ruta y mismo esquema: settings como strings, `price_kg` como numero,
+igual que escribia la app Python. Claves nuevas en `settings`: `nombre_negocio`
+(string, default ""). Los filamentos sin `id` reciben un GUID al cargar; los
+ids existentes se conservan. Todo lo demas intacto.
