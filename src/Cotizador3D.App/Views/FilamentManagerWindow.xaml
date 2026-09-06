@@ -1,0 +1,84 @@
+<Window x:Class="Cotizador3D.App.Views.FilamentManagerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Administrar Filamentos"
+        Style="{StaticResource VentanaBase}"
+        Width="620" Height="470"
+        MinWidth="480" MinHeight="360"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner">
+
+    <Grid x:Name="Raiz" Opacity="0" Margin="20">
+        <Grid.Triggers>
+            <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                <BeginStoryboard Storyboard="{StaticResource AnimAparecerVentana}" />
+            </EventTrigger>
+        </Grid.Triggers>
+
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,12">
+            <TextBlock Text="Mis Filamentos" Style="{StaticResource TituloVentana}" />
+            <TextBlock Text="Los cambios se guardan al instante."
+                       FontSize="12"
+                       Foreground="{StaticResource PincelTextoTenue}"
+                       Margin="0,4,0,0" />
+        </StackPanel>
+
+        <Border Grid.Row="1" Style="{StaticResource Tarjeta}" Padding="12">
+            <Grid>
+                <ListBox ItemsSource="{Binding Filamentos}"
+                         SelectedItem="{Binding Seleccionado, Mode=TwoWay}">
+                    <ListBox.InputBindings>
+                        <MouseBinding MouseAction="LeftDoubleClick" Command="{Binding EditarCommand}" />
+                    </ListBox.InputBindings>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Texto}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+                <TextBlock Text="Todavía no cargaste ningún filamento."
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           Foreground="{StaticResource PincelTextoTenue}"
+                           IsHitTestVisible="False"
+                           Visibility="{Binding ListaVacia, Converter={StaticResource BoolAVisibilidad}}" />
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="2" Margin="0,14,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Button Grid.Column="0"
+                    Content="Agregar Nuevo Filamento"
+                    Style="{StaticResource BotonPrimario}"
+                    Command="{Binding AgregarCommand}" />
+
+            <StackPanel Grid.Column="2" Orientation="Horizontal">
+                <Button Content="Editar"
+                        Style="{StaticResource BotonSecundario}"
+                        MinWidth="90"
+                        Margin="0,0,8,0"
+                        Command="{Binding EditarCommand}" />
+                <Button Content="Eliminar"
+                        Style="{StaticResource BotonPeligro}"
+                        MinWidth="90"
+                        Margin="0,0,8,0"
+                        Command="{Binding EliminarCommand}" />
+                <Button Content="Cerrar"
+                        Style="{StaticResource BotonSecundario}"
+                        MinWidth="90"
+                        IsCancel="True" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

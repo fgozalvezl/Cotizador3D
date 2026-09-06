@@ -1,0 +1,31 @@
+name: build
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - run: dotnet build Cotizador3D.sln -c Release
+      - run: dotnet test Cotizador3D.sln -c Release --no-build
+
+  publish-windows:
+    runs-on: windows-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - run: dotnet publish src/Cotizador3D.App/Cotizador3D.App.csproj -c Release -o publish
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Cotizador3D-win-x64
+          path: publish/*.exe

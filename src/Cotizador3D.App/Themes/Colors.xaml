@@ -1,0 +1,71 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Paleta oscura de Cotizador3D. Los Color se usan en las animaciones de
+         las plantillas; los SolidColorBrush, para pintar sin animar. -->
+
+    <!-- Superficies -->
+    <Color x:Key="ColorFondo">#FF0C0D11</Color>
+    <Color x:Key="ColorSuperficie">#FF14161D</Color>
+    <Color x:Key="ColorSuperficieAlta">#FF1B1E27</Color>
+    <Color x:Key="ColorCampo">#FF1E212B</Color>
+    <Color x:Key="ColorCampoHover">#FF262A36</Color>
+    <Color x:Key="ColorBorde">#FF2B303C</Color>
+    <Color x:Key="ColorBordeSuave">#FF23262F</Color>
+
+    <!-- Acento -->
+    <Color x:Key="ColorAcento">#FF4C8DFF</Color>
+    <Color x:Key="ColorAcentoHover">#FF6FA5FF</Color>
+    <Color x:Key="ColorAcentoPresionado">#FF3572DA</Color>
+
+    <!-- Secundario -->
+    <Color x:Key="ColorSecundario">#FF262A36</Color>
+    <Color x:Key="ColorSecundarioHover">#FF333947</Color>
+    <Color x:Key="ColorSecundarioPresionado">#FF1D212B</Color>
+
+    <!-- Estados -->
+    <Color x:Key="ColorPeligro">#FFD32F2F</Color>
+    <Color x:Key="ColorPeligroHover">#FFE04747</Color>
+    <Color x:Key="ColorPeligroPresionado">#FFB71C1C</Color>
+    <Color x:Key="ColorError">#FFFF6B6B</Color>
+    <Color x:Key="ColorErrorFondo">#FF2B1418</Color>
+    <Color x:Key="ColorAdvertencia">#FFE0A21A</Color>
+    <Color x:Key="ColorAdvertenciaFondo">#FF2A2210</Color>
+
+    <!-- Bloque PRECIO FINAL (naranja del legado) -->
+    <Color x:Key="ColorFinal">#FFE65100</Color>
+    <Color x:Key="ColorFinalOscuro">#FF8C3200</Color>
+
+    <!-- Texto -->
+    <Color x:Key="ColorTexto">#FFE9ECF2</Color>
+    <Color x:Key="ColorTextoSuave">#FF9AA3B2</Color>
+    <Color x:Key="ColorTextoTenue">#FF697285</Color>
+    <Color x:Key="ColorTextoSobreAcento">#FFFFFFFF</Color>
+
+    <!-- Pinceles -->
+    <SolidColorBrush x:Key="PincelFondo" Color="{StaticResource ColorFondo}" />
+    <SolidColorBrush x:Key="PincelSuperficie" Color="{StaticResource ColorSuperficie}" />
+    <SolidColorBrush x:Key="PincelSuperficieAlta" Color="{StaticResource ColorSuperficieAlta}" />
+    <SolidColorBrush x:Key="PincelCampo" Color="{StaticResource ColorCampo}" />
+    <SolidColorBrush x:Key="PincelBorde" Color="{StaticResource ColorBorde}" />
+    <SolidColorBrush x:Key="PincelBordeSuave" Color="{StaticResource ColorBordeSuave}" />
+    <SolidColorBrush x:Key="PincelAcento" Color="{StaticResource ColorAcento}" />
+    <SolidColorBrush x:Key="PincelPeligro" Color="{StaticResource ColorPeligro}" />
+    <SolidColorBrush x:Key="PincelError" Color="{StaticResource ColorError}" />
+    <SolidColorBrush x:Key="PincelErrorFondo" Color="{StaticResource ColorErrorFondo}" />
+    <SolidColorBrush x:Key="PincelAdvertencia" Color="{StaticResource ColorAdvertencia}" />
+    <SolidColorBrush x:Key="PincelAdvertenciaFondo" Color="{StaticResource ColorAdvertenciaFondo}" />
+    <SolidColorBrush x:Key="PincelTexto" Color="{StaticResource ColorTexto}" />
+    <SolidColorBrush x:Key="PincelTextoSuave" Color="{StaticResource ColorTextoSuave}" />
+    <SolidColorBrush x:Key="PincelTextoTenue" Color="{StaticResource ColorTextoTenue}" />
+    <SolidColorBrush x:Key="PincelTextoSobreAcento" Color="{StaticResource ColorTextoSobreAcento}" />
+
+    <LinearGradientBrush x:Key="PincelFinal" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Offset="0" Color="{StaticResource ColorFinal}" />
+        <GradientStop Offset="1" Color="{StaticResource ColorFinalOscuro}" />
+    </LinearGradientBrush>
+
+    <!-- Tipografia -->
+    <FontFamily x:Key="FuenteBase">Segoe UI, Segoe UI Emoji, Arial, sans-serif</FontFamily>
+
+</ResourceDictionary>
