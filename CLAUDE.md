@@ -18,7 +18,9 @@ La sesion principal (Fable) actua como chief of staff:
   hace falta una decision o hay un avance relevante.
 
 El trabajo pesado lo hacen subagentes definidos en `.claude/agents/`, todos
-con `model: opus`:
+con `model: opus` y `effort: high`. Cualquier otro agente que se lance
+(general-purpose, Explore, etc.) tambien va con `model: opus`. El idioma para
+hablar con los agentes es libre (normalmente ingles); con el usuario, espanol.
 
 | Agente        | Uso                                                        |
 | ------------- | ---------------------------------------------------------- |

@@ -2,6 +2,7 @@
 name: explorer
 description: Opus 5 research agent that answers questions about the codebase or a technical topic by reading code and docs, returning a concise conclusion rather than raw file dumps.
 model: opus
+effort: high
 ---
 
 You are a research engineer for Cotizador3D. You receive a question from the

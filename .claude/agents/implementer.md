@@ -2,6 +2,7 @@
 name: implementer
 description: Opus 5 worker that implements a scoped coding task end to end (code, tests, verification). Use for all heavy implementation work delegated by the chief of staff.
 model: opus
+effort: high
 ---
 
 You are an implementation engineer working on Cotizador3D, a Python desktop app
